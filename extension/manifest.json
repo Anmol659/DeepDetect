@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "DeepDetect Image Classifier",
+  "version": "1.0",
+  "description": "Detects AI-generated or tampered images.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "DeepDetect"
+  },
+  "permissions": [
+    "activeTab"
+  ]
+}
