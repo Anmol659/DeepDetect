@@ -1,27 +1,55 @@
+import torch
 import torch.nn as nn
-import timm
+import torchvision.transforms as transforms
+from PIL import Image
+import io
+import numpy as np
+import joblib
 
-def get_xception_model(num_classes=2, dropout=0.4, pretrained=True):
-    """
-    Returns an Xception model from timm, modified for binary classification.
+# Load your models
+xception_model = torch.load("xception_best.pth", map_location=torch.device("cpu"))
+xception_model.eval()
 
-    Args:
-        num_classes (int): Number of output classes (default 2).
-        dropout (float): Dropout probability before final layer.
-        pretrained (bool): Load pretrained weights on ImageNet.
+effnet_model = torch.load("last_model.pth", map_location=torch.device("cpu"))
+effnet_model.eval()
 
-    Returns:
-        model (nn.Module): Modified Xception model.
-    """
-    model = timm.create_model('xception', pretrained=pretrained)
-    
-    # Reset the classifier head to desired number of classes
-    model.reset_classifier(num_classes=num_classes)
+meta_model = joblib.load("meta_classifier.pkl")
 
-    # Replace with dropout + linear explicitly
-    model.classifier = nn.Sequential(
-        nn.Dropout(dropout),
-        nn.Linear(model.get_classifier().in_features, num_classes)
-    )
+# Preprocessing
+transform = transforms.Compose([
+    transforms.Resize((224, 224)),
+    transforms.ToTensor(),
+])
 
-    return model
+def preprocess_image(file_bytes):
+    image = Image.open(io.BytesIO(file_bytes)).convert("RGB")
+    return transform(image).unsqueeze(0)  # shape: (1, 3, 224, 224)
+
+def predict_combined(file_bytes):
+    img = preprocess_image(file_bytes)
+
+    with torch.no_grad():
+        deepfake_score = torch.sigmoid(xception_best(img)).item()
+        ai_score = torch.sigmoid(last_model(img)).item()
+
+    features = np.array([[deepfake_score, ai_score]])
+    meta_pred = meta_model.predict(features)[0]
+    confidence = float((deepfake_score + ai_score) / 2)
+
+    if deepfake_score > 0.5 and ai_score > 0.5:
+        label = "synthetic"
+    elif deepfake_score > 0.5:
+        label = "deepfake"
+    elif ai_score > 0.5:
+        label = "AI-generated"
+    else:
+        label = "real"
+
+    return {
+        "label": label,
+        "confidence": round(confidence, 3),
+        "scores": {
+            "deepfake": round(deepfake_score, 3),
+            "ai_generated": round(ai_score, 3)
+        }
+    }
