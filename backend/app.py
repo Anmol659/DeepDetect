@@ -4,11 +4,11 @@ import torch.nn as nn
 import numpy as np
 from PIL import Image
 import cv2
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 from torchvision import transforms, models
 from io import BytesIO
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -32,7 +32,6 @@ transform = transforms.Compose([
 ])
 
 def classify_label(prob_array):
-    # Combine deepfake + ai_generated as "fake"
     fake_prob = prob_array[0] + prob_array[1]
     real_prob = prob_array[2]
     if fake_prob > 0.8:
@@ -87,10 +86,6 @@ def predict_video(video_path):
         }
     }
 
-@app.route("/")
-def home():
-    return " DeepDetect API is running."
-
 @app.route("/analyze", methods=["POST"])
 def analyze():
     if 'file' not in request.files:
@@ -113,5 +108,16 @@ def analyze():
 
     return jsonify(result)
 
+# Serve index.html at /
+@app.route("/")
+def index():
+    return app.send_static_file("index.html")
+
+# Serve other static files (CSS/JS)
+@app.route("/<path:path>")
+def static_files(path):
+    return send_from_directory("static", path)
+
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
