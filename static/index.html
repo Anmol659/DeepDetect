@@ -1,69 +1,268 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>DeepDetect Frontend</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 500px;
-      margin: 50px auto;
-    }
-    #result {
-      margin-top: 20px;
-      font-size: 1.2em;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepDetect - AI Image & Video Authentication</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 </head>
 <body>
-  <h2>DeepDetect Image/Video Analyzer</h2>
-  <form id="uploadForm">
-    <input type="file" id="fileInput" accept="image/*,video/*" />
-    <button type="submit">Analyze</button>
-  </form>
-  <div id="result"></div>
+    <!-- Header -->
+    <header class="header">
+        <nav class="nav">
+            <div class="nav-brand">
+                <i class="fas fa-shield-alt"></i>
+                <span>DeepDetect</span>
+            </div>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#how-it-works">How It Works</a>
+                <a href="#about">About</a>
+            </div>
+        </nav>
+    </header>
 
-  <script>
-    const uploadForm = document.getElementById('uploadForm');
-    const fileInput = document.getElementById('fileInput');
-    const resultDiv = document.getElementById('result');
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="hero-content">
+            <div class="hero-text">
+                <h1>Detect AI-Generated Content with <span class="gradient-text">Precision</span></h1>
+                <p>Advanced deep learning technology to identify deepfakes, AI-generated images, and manipulated media with industry-leading accuracy.</p>
+                <div class="hero-stats">
+                    <div class="stat">
+                        <span class="stat-number">95%</span>
+                        <span class="stat-label">Accuracy</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">3</span>
+                        <span class="stat-label">Detection Types</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-number">Fast</span>
+                        <span class="stat-label">Analysis</span>
+                    </div>
+                </div>
+            </div>
+            <div class="hero-analyzer">
+                <div class="analyzer-card">
+                    <div class="analyzer-header">
+                        <h3><i class="fas fa-search"></i> Analyze Media</h3>
+                        <p>Upload an image or video to detect AI manipulation</p>
+                    </div>
+                    
+                    <form id="uploadForm" class="upload-form">
+                        <div class="file-upload-area" id="fileUploadArea">
+                            <div class="upload-icon">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                            </div>
+                            <div class="upload-text">
+                                <strong>Drop files here or click to browse</strong>
+                                <span>Supports JPG, PNG, MP4, AVI, MOV</span>
+                            </div>
+                            <input type="file" id="fileInput" accept="image/*,video/*" hidden>
+                        </div>
+                        
+                        <div class="file-preview" id="filePreview" style="display: none;">
+                            <div class="preview-content">
+                                <div class="preview-icon">
+                                    <i class="fas fa-file-image"></i>
+                                </div>
+                                <div class="preview-info">
+                                    <span class="file-name" id="fileName"></span>
+                                    <span class="file-size" id="fileSize"></span>
+                                </div>
+                                <button type="button" class="remove-file" id="removeFile">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="analyze-btn" id="analyzeBtn" disabled>
+                            <i class="fas fa-search"></i>
+                            <span>Analyze Media</span>
+                        </button>
+                    </form>
+                    
+                    <div class="result-section" id="resultSection" style="display: none;">
+                        <div class="result-header">
+                            <h4>Analysis Results</h4>
+                        </div>
+                        <div class="result-content" id="resultContent">
+                            <!-- Results will be populated here -->
+                        </div>
+                    </div>
+                    
+                    <div class="loading-section" id="loadingSection" style="display: none;">
+                        <div class="loading-animation">
+                            <div class="loading-spinner"></div>
+                            <p>Analyzing media with AI...</p>
+                            <div class="loading-steps">
+                                <div class="step active">
+                                    <i class="fas fa-upload"></i>
+                                    <span>Uploading</span>
+                                </div>
+                                <div class="step">
+                                    <i class="fas fa-brain"></i>
+                                    <span>Processing</span>
+                                </div>
+                                <div class="step">
+                                    <i class="fas fa-check"></i>
+                                    <span>Complete</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 
-    uploadForm.addEventListener('submit', (e) => {
-      e.preventDefault();
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="container">
+            <div class="section-header">
+                <h2>Advanced Detection Capabilities</h2>
+                <p>Our AI-powered system can identify various types of manipulated content</p>
+            </div>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon ai-generated">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <h3>AI-Generated Images</h3>
+                    <p>Detect images created by AI tools like DALL-E, Midjourney, and Stable Diffusion with high precision.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon deepfake">
+                        <i class="fas fa-user-secret"></i>
+                    </div>
+                    <h3>Deepfake Detection</h3>
+                    <p>Identify face-swapped videos and manipulated facial expressions in real-time video content.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon authentic">
+                        <i class="fas fa-certificate"></i>
+                    </div>
+                    <h3>Authenticity Verification</h3>
+                    <p>Verify the authenticity of media content and distinguish real from artificially generated material.</p>
+                </div>
+            </div>
+        </div>
+    </section>
 
-      const file = fileInput.files[0];
-      if (!file) {
-        resultDiv.textContent = "Please select a file.";
-        return;
-      }
+    <!-- How It Works Section -->
+    <section id="how-it-works" class="how-it-works">
+        <div class="container">
+            <div class="section-header">
+                <h2>How DeepDetect Works</h2>
+                <p>Our advanced neural network analyzes media at the pixel level</p>
+            </div>
+            <div class="process-steps">
+                <div class="step-card">
+                    <div class="step-number">1</div>
+                    <div class="step-content">
+                        <h3>Upload Media</h3>
+                        <p>Simply drag and drop or select your image or video file for analysis.</p>
+                    </div>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">2</div>
+                    <div class="step-content">
+                        <h3>AI Analysis</h3>
+                        <p>Our EfficientNet-B4 model processes the media using advanced computer vision techniques.</p>
+                    </div>
+                </div>
+                <div class="step-card">
+                    <div class="step-number">3</div>
+                    <div class="step-content">
+                        <h3>Get Results</h3>
+                        <p>Receive detailed analysis with confidence scores and classification results.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 
-      const formData = new FormData();
-      formData.append('file', file);
+    <!-- About Section -->
+    <section id="about" class="about">
+        <div class="container">
+            <div class="about-content">
+                <div class="about-text">
+                    <h2>About DeepDetect</h2>
+                    <p>DeepDetect is a cutting-edge AI-powered platform designed to combat the growing threat of manipulated media. Using state-of-the-art deep learning models, we provide reliable detection of AI-generated images, deepfakes, and other forms of synthetic media.</p>
+                    <div class="about-features">
+                        <div class="about-feature">
+                            <i class="fas fa-shield-alt"></i>
+                            <span>Trusted by security professionals</span>
+                        </div>
+                        <div class="about-feature">
+                            <i class="fas fa-lightning-bolt"></i>
+                            <span>Real-time processing</span>
+                        </div>
+                        <div class="about-feature">
+                            <i class="fas fa-lock"></i>
+                            <span>Privacy-focused design</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="about-visual">
+                    <div class="tech-stack">
+                        <div class="tech-item">
+                            <i class="fab fa-python"></i>
+                            <span>Python</span>
+                        </div>
+                        <div class="tech-item">
+                            <i class="fas fa-brain"></i>
+                            <span>PyTorch</span>
+                        </div>
+                        <div class="tech-item">
+                            <i class="fas fa-server"></i>
+                            <span>Flask</span>
+                        </div>
+                        <div class="tech-item">
+                            <i class="fas fa-eye"></i>
+                            <span>Computer Vision</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
 
-      resultDiv.textContent = "Analyzing... Please wait.";
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <div class="nav-brand">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>DeepDetect</span>
+                    </div>
+                    <p>Advanced AI-powered media authentication</p>
+                </div>
+                <div class="footer-links">
+                    <div class="footer-section">
+                        <h4>Product</h4>
+                        <a href="#features">Features</a>
+                        <a href="#how-it-works">How It Works</a>
+                        <a href="#about">About</a>
+                    </div>
+                    <div class="footer-section">
+                        <h4>Support</h4>
+                        <a href="#">Documentation</a>
+                        <a href="#">API Reference</a>
+                        <a href="#">Contact</a>
+                    </div>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2025 DeepDetect. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
 
-      fetch('https://deepsheild.onrender.com/analyze', {
-        method: "POST",
-        body: formData
-      })
-      .then(response => response.json())
-      .then(data => {
-        let color = "black";
-        if (data.label === "real") color = "green";
-        else if (data.label === "possibly fake") color = "orange";
-        else if (data.label === "fake") color = "red";
-
-        resultDiv.innerHTML = `
-          <strong style="color:${color}">Result: ${data.label.toUpperCase()}</strong><br/>
-          AI Generated: ${(data.probabilities.ai_generated * 100).toFixed(1)}%<br/>
-          Deepfake: ${(data.probabilities.deepfake * 100).toFixed(1)}%<br/>
-          Real: ${(data.probabilities.real * 100).toFixed(1)}%
-        `;
-      })
-      .catch(error => {
-        console.error(error);
-        resultDiv.textContent = "Error analyzing file.";
-      });
-    });
-  </script>
+    <script src="app.js"></script>
 </body>
 </html>
