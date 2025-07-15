@@ -2,17 +2,17 @@
 flask==2.2.5
 flask-cors==6.0.1
 
-# Deep learning
-torch
-torchvision
+# Deep learning (PyTorch 2.2.x stable)
+torch==2.2.2
+torchvision==0.17.2
 
 # Image/video processing
-opencv-python-headless==4.12.0.88
+opencv-python-headless==4.8.0.76
 Pillow==9.5.0
 
 # Utilities
-numpy
+numpy==1.24.4
 scikit-learn==1.2.2
 
-# Optional, if you use matplotlib for plots (can be omitted if not)
-matplotlib==3.10.3
+# Optional plotting
+matplotlib==3.7.3
