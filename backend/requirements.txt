@@ -1,0 +1,18 @@
+# Web framework
+flask==2.2.5
+flask-cors==6.0.1
+
+# Deep learning
+torch
+torchvision
+
+# Image/video processing
+opencv-python-headless==4.12.0.88
+Pillow==10.2.0
+
+# Utilities
+numpy<2
+scikit-learn==1.2.2
+
+# Optional, if you use matplotlib for plots (can be omitted if not)
+matplotlib==3.10.3
