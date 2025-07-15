@@ -1,0 +1,14 @@
+{
+  "name": "deepdetect",
+  "version": "1.0.0",
+  "description": "Browser extension + AI backend to detect tampered or fake images",
+  "main": "index.js",
+  "scripts": {
+    "build": "echo \"No specific build process defined for this project. Static assets are served directly.\"",
+    "start": "python backend/app.py",
+    "dev": "python backend/app.py"
+  },
+  "keywords": ["ai", "deepfake", "detection", "image", "video"],
+  "author": "",
+  "license": "ISC"
+}
