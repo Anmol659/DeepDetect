@@ -1,14 +1,60 @@
+/* Legacy styles file - kept for compatibility */
+/* Main styles are now in popup.css */
+
 body {
-  font-family: Arial, sans-serif;
-  padding: 10px;
-  width: 250px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #1a1a1a;
+  color: #ffffff;
+  padding: 16px;
+  width: 320px;
+  min-height: 400px;
 }
 
 h2 {
   margin-top: 0;
+  color: #3b82f6;
+  font-size: 18px;
+  font-weight: 600;
 }
 
 #result {
-  margin-top: 10px;
+  margin-top: 16px;
   font-size: 14px;
+  padding: 12px;
+  background: #2d2d2d;
+  border-radius: 8px;
+  border: 1px solid #404040;
+  white-space: pre-wrap;
+}
+
+input[type="file"] {
+  width: 100%;
+  padding: 8px;
+  margin: 12px 0;
+  background: #2d2d2d;
+  border: 1px solid #404040;
+  border-radius: 6px;
+  color: #ffffff;
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+button:hover {
+  background: #1d4ed8;
+}
+
+button:disabled {
+  background: #404040;
+  cursor: not-allowed;
 }

@@ -1,0 +1,136 @@
+/* Content script styles for DeepDetect extension */
+
+.deepdetect-overlay {
+    position: absolute !important;
+    bottom: 5px !important;
+    left: 5px !important;
+    padding: 4px 8px !important;
+    border-radius: 4px !important;
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    z-index: 1000 !important;
+    pointer-events: none !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    color: white !important;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5) !important;
+    backdrop-filter: blur(4px) !important;
+    animation: deepdetect-fade-in 0.3s ease !important;
+}
+
+.deepdetect-loading {
+    background: rgba(245, 158, 11, 0.9) !important;
+}
+
+.deepdetect-authentic {
+    background: rgba(16, 185, 129, 0.9) !important;
+}
+
+.deepdetect-suspicious {
+    background: rgba(239, 68, 68, 0.9) !important;
+}
+
+.deepdetect-uncertain {
+    background: rgba(245, 158, 11, 0.9) !important;
+}
+
+.deepdetect-error {
+    background: rgba(107, 114, 128, 0.9) !important;
+}
+
+.deepdetect-warning-icon {
+    position: absolute !important;
+    top: 5px !important;
+    right: 5px !important;
+    background: #ef4444 !important;
+    color: white !important;
+    border-radius: 50% !important;
+    width: 24px !important;
+    height: 24px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 12px !important;
+    z-index: 1000 !important;
+    cursor: pointer !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+    transition: transform 0.2s ease !important;
+    animation: deepdetect-fade-in 0.3s ease !important;
+}
+
+.deepdetect-warning-icon:hover {
+    transform: scale(1.1) !important;
+}
+
+.deepdetect-modal {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background: rgba(0, 0, 0, 0.8) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    z-index: 10000 !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    backdrop-filter: blur(4px) !important;
+    animation: deepdetect-modal-fade-in 0.3s ease !important;
+}
+
+/* Highlighted suspicious images */
+img[style*="border: 3px solid #ef4444"] {
+    animation: deepdetect-suspicious-pulse 2s infinite !important;
+}
+
+@keyframes deepdetect-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes deepdetect-modal-fade-in {
+    from {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes deepdetect-suspicious-pulse {
+    0%, 100% {
+        box-shadow: 0 0 10px rgba(239, 68, 68, 0.5) !important;
+    }
+    50% {
+        box-shadow: 0 0 20px rgba(239, 68, 68, 0.8) !important;
+    }
+}
+
+/* Ensure overlays don't interfere with page layout */
+.deepdetect-overlay,
+.deepdetect-warning-icon {
+    box-sizing: border-box !important;
+    line-height: 1 !important;
+    letter-spacing: normal !important;
+    text-transform: none !important;
+    text-decoration: none !important;
+    text-align: left !important;
+    white-space: nowrap !important;
+    word-spacing: normal !important;
+    direction: ltr !important;
+    max-width: none !important;
+    max-height: none !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    outline: none !important;
+    vertical-align: baseline !important;
+}
