@@ -12,14 +12,56 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # ========== MODEL ==========
 def build_efficientnet_b4(weights_path):
+    """Build EfficientNet-B4 model with error handling for missing weights"""
+    if not os.path.exists(weights_path):
+        print(f"Warning: Model weights not found at {weights_path}")
+        print("Creating model with ImageNet weights only (reduced accuracy)")
+        
+        # Use ImageNet pretrained weights as fallback
+        weights = models.EfficientNet_B4_Weights.IMAGENET1K_V1
+        model = models.efficientnet_b4(weights=weights)
+        model.classifier[1] = nn.Linear(model.classifier[1].in_features, 3)
+        
+        # Initialize the new classifier layer
+        nn.init.xavier_uniform_(model.classifier[1].weight)
+        nn.init.zeros_(model.classifier[1].bias)
+        
+        model.eval()
+        return model.to(device)
+    
     weights = models.EfficientNet_B4_Weights.IMAGENET1K_V1
     model = models.efficientnet_b4(weights=weights)
     model.classifier[1] = nn.Linear(model.classifier[1].in_features, 3)
-    model.load_state_dict(torch.load(weights_path, map_location=device))
+    
+    try:
+        model.load_state_dict(torch.load(weights_path, map_location=device))
+        print(f"Successfully loaded model weights from {weights_path}")
+    except Exception as e:
+        print(f"Error loading model weights: {e}")
+        print("Using ImageNet pretrained weights as fallback")
+        # Initialize the new classifier layer
+        nn.init.xavier_uniform_(model.classifier[1].weight)
+        nn.init.zeros_(model.classifier[1].bias)
+    
     model.eval()
     return model.to(device)
 
-model = build_efficientnet_b4("checkpoints/best_model_3way.pth")
+# Try different possible checkpoint paths
+checkpoint_paths = [
+    "checkpoints/best_model_3way.pth",
+    "../checkpoints/best_model_3way.pth",
+    "best_model_3way.pth"
+]
+
+model = None
+for path in checkpoint_paths:
+    if os.path.exists(path):
+        model = build_efficientnet_b4(path)
+        break
+
+if model is None:
+    print("No model checkpoint found, using fallback model")
+    model = build_efficientnet_b4("checkpoints/best_model_3way.pth")  # This will use fallback
 
 # ========== TRANSFORMS ==========
 transform = transforms.Compose([

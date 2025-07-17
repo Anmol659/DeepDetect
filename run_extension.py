@@ -29,8 +29,12 @@ def check_model_files():
     """Check if model checkpoint exists"""
     checkpoint_path = Path("checkpoints/best_model_3way.pth")
     if not checkpoint_path.exists():
-        print(f"✗ Model checkpoint not found: {checkpoint_path}")
-        print("Please ensure the trained model file exists in the checkpoints directory")
+        print(f"⚠ Model checkpoint not found: {checkpoint_path}")
+        print("The server will run in fallback mode with limited accuracy.")
+        print("For full functionality, please:")
+        print("  1. Train the model using the training scripts in backend/Model_A/")
+        print("  2. Copy the resulting 'best_model_3way.pth' to the checkpoints/ directory")
+        print("  3. Or download a pre-trained model if available")
         return False
     print("✓ Model checkpoint found")
     return True
@@ -88,8 +92,13 @@ def main():
         sys.exit(1)
     
     # Check model files
-    if not check_model_files():
-        sys.exit(1)
+    model_available = check_model_files()
+    if not model_available:
+        print("\n⚠ Continuing without trained model (fallback mode)")
+        response = input("Continue anyway? (y/n): ").lower().strip()
+        if response not in ['y', 'yes']:
+            print("Setup cancelled. Please ensure model checkpoint exists for full functionality.")
+            sys.exit(1)
     
     # Print extension setup instructions
     print_extension_instructions()
