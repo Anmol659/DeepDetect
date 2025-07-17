@@ -130,127 +130,143 @@ class DeepDetectPopup {
         const progressSection = document.getElementById('scanProgress');
         
         scanBtn.disabled = true;
+        scanBtn.textContent = 'Scanning...';
         progressSection.style.display = 'block';
+        this.updateProgress(0, 'Starting scan...');
         
         try {
             // Get current tab
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             
-            // Inject content script to find images
-            const results = await chrome.scripting.executeScript({
+            // Check if content script is loaded
+            let contentScriptLoaded = false;
+            try {
+                const results = await chrome.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    function: () => window.deepDetectLoaded || false
+                });
+                contentScriptLoaded = results[0]?.result || false;
+            } catch (error) {
+                console.log('Content script not loaded, injecting...');
+            }
+            
+            // Inject content script if not loaded
+            if (!contentScriptLoaded) {
+                await chrome.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    files: ['content.js']
+                });
+                
+                await chrome.scripting.insertCSS({
+                    target: { tabId: tab.id },
+                    files: ['content.css']
+                });
+                
+                // Wait for content script to initialize
+                await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+            
+            this.updateProgress(20, 'Finding images on page...');
+            
+            // Get images from content script
+            const imageResults = await chrome.scripting.executeScript({
                 target: { tabId: tab.id },
-                function: this.findImagesOnPage
+                function: () => {
+                    if (window.deepDetectContent) {
+                        return Array.from(document.querySelectorAll('img'))
+                            .filter(img => {
+                                return img.naturalWidth > 50 && 
+                                       img.naturalHeight > 50 && 
+                                       img.src && 
+                                       !img.src.startsWith('data:') &&
+                                       !img.src.includes('icon') &&
+                                       !img.src.includes('logo') &&
+                                       img.complete;
+                            })
+                            .map(img => ({
+                                src: img.src,
+                                width: img.naturalWidth,
+                                height: img.naturalHeight,
+                                alt: img.alt || ''
+                            }));
+                    }
+                    return [];
+                }
             });
             
-            const images = results[0].result;
+            const images = imageResults[0]?.result || [];
+            
             this.updateStats(images.length, 0, 0);
+            this.updateProgress(40, `Found ${images.length} images`);
             
             if (images.length === 0) {
                 this.showToast('warning', 'No Images Found', 'No images detected on this page');
                 progressSection.style.display = 'none';
                 scanBtn.disabled = false;
+                scanBtn.textContent = 'Scan Page';
                 return;
             }
 
-            // Analyze each image
+            this.updateProgress(60, 'Starting analysis...');
+            
+            // Trigger scan in content script
+            const scanResponse = await chrome.tabs.sendMessage(tab.id, {
+                action: 'scanPage'
+            });
+            
+            if (!scanResponse?.success) {
+                throw new Error('Failed to start page scan');
+            }
+            
+            this.updateProgress(80, 'Processing results...');
+            
+            // Wait for scan to complete and get results
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            const resultsResponse = await chrome.tabs.sendMessage(tab.id, {
+                action: 'getPageImages'
+            });
+            
+            const analyzedImages = resultsResponse?.images || [];
             let scanned = 0;
             let suspicious = 0;
             
-            for (let i = 0; i < images.length; i++) {
-                const image = images[i];
-                this.updateProgress((i / images.length) * 100, `Analyzing image ${i + 1} of ${images.length}`);
-                
-                try {
-                    const result = await this.analyzeImage(image);
-                    if (result) {
-                        this.scanResults.push({
-                            id: Date.now() + i,
-                            url: image.src,
-                            thumbnail: image.src,
-                            result: result,
-                            timestamp: new Date(),
-                            pageUrl: tab.url
-                        });
-                        
-                        if (result.label !== 'real') {
-                            suspicious++;
-                        }
-                    }
+            // Process results
+            analyzedImages.forEach((img, index) => {
+                if (img.result) {
                     scanned++;
-                } catch (error) {
-                    console.error('Error analyzing image:', error);
+                    this.scanResults.push({
+                        id: Date.now() + index,
+                        url: img.src,
+                        thumbnail: img.src,
+                        result: img.result,
+                        timestamp: new Date(),
+                        pageUrl: tab.url
+                    });
+                    
+                    if (img.result.label !== 'real') {
+                        suspicious++;
+                    }
                 }
-                
-                this.updateStats(images.length, scanned, suspicious);
-            }
+            });
             
-            this.updateProgress(100, 'Scan complete');
+            this.updateProgress(100, `Scan complete: ${scanned} analyzed`);
             await this.saveScanResults();
             this.updateResultsList();
+            this.updateStats(images.length, scanned, suspicious);
             
             this.showToast('success', 'Scan Complete', `Analyzed ${scanned} images, found ${suspicious} suspicious`);
             
         } catch (error) {
             console.error('Scan error:', error);
-            this.showToast('error', 'Scan Failed', 'Failed to scan page images');
+            this.showToast('error', 'Scan Failed', `Error: ${error.message}`);
         } finally {
             progressSection.style.display = 'none';
             scanBtn.disabled = false;
+            scanBtn.textContent = 'Scan Page';
         }
     }
 
-    findImagesOnPage() {
-        const images = Array.from(document.querySelectorAll('img'))
-            .filter(img => {
-                // Filter out small images, icons, etc.
-                return img.naturalWidth > 100 && 
-                       img.naturalHeight > 100 && 
-                       img.src && 
-                       !img.src.startsWith('data:') &&
-                       img.complete;
-            })
-            .map(img => ({
-                src: img.src,
-                width: img.naturalWidth,
-                height: img.naturalHeight,
-                alt: img.alt || '',
-                element: img
-            }));
-        
-        return images;
-    }
-
-    async analyzeImage(imageData) {
-        try {
-            // Convert image to blob
-            const response = await fetch(imageData.src);
-            const blob = await response.blob();
-            
-            // Create form data
-            const formData = new FormData();
-            formData.append('file', blob, 'image.jpg');
-            
-            // Send to backend
-            const analysisResponse = await fetch(`${this.serverUrl}/analyze`, {
-                method: 'POST',
-                body: formData,
-                signal: AbortSignal.timeout(30000) // 30 second timeout
-            });
-            
-            if (!analysisResponse.ok) {
-                throw new Error(`Analysis failed: ${analysisResponse.status}`);
-            }
-            
-            return await analysisResponse.json();
-            
-        } catch (error) {
-            console.error('Image analysis error:', error);
-            if (error.name === 'AbortError') {
-                throw new Error('Analysis timed out');
-            }
-            return null;
-        }
-    }
 
     async handleFileSelect(event) {
         const file = event.target.files[0];

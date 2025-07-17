@@ -91,26 +91,33 @@ class DeepDetectBackground {
             const settings = await chrome.storage.sync.get(['autoScan']);
             
             if (settings.autoScan) {
-                // Inject content script if not already present
-                try {
-                    await chrome.scripting.executeScript({
-                        target: { tabId },
-                        function: () => {
-                            // Check if content script is already loaded
-                            return window.deepDetectLoaded || false;
-                        }
-                    });
-                } catch (error) {
-                    // Content script not loaded, inject it
+                // Small delay to ensure page is fully loaded
+                setTimeout(async () => {
                     try {
-                        await chrome.scripting.executeScript({
+                        // Check if content script is already loaded
+                        const results = await chrome.scripting.executeScript({
                             target: { tabId },
-                            files: ['content.js']
+                            function: () => window.deepDetectLoaded || false
                         });
-                    } catch (injectionError) {
-                        console.error('Failed to inject content script:', injectionError);
+                        
+                        const isLoaded = results[0]?.result || false;
+                        
+                        if (!isLoaded) {
+                            // Inject content script and CSS
+                            await chrome.scripting.executeScript({
+                                target: { tabId },
+                                files: ['content.js']
+                            });
+                            
+                            await chrome.scripting.insertCSS({
+                                target: { tabId },
+                                files: ['content.css']
+                            });
+                        }
+                    } catch (error) {
+                        console.error('Failed to inject content script:', error);
                     }
-                }
+                }, 2000);
             }
         }
     }

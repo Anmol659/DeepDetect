@@ -5,6 +5,7 @@ class DeepDetectContent {
         this.settings = {};
         this.processedImages = new Set();
         this.overlays = new Map();
+        this.isScanning = false;
         
         this.init();
     }
@@ -13,8 +14,21 @@ class DeepDetectContent {
         await this.loadSettings();
         this.setupImageObserver();
         
-        if (this.settings.autoScan) {
-            this.scanPageImages();
+        // Wait for page to be fully loaded
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                setTimeout(() => {
+                    if (this.settings.autoScan) {
+                        this.scanPageImages();
+                    }
+                }, 1000);
+            });
+        } else {
+            setTimeout(() => {
+                if (this.settings.autoScan) {
+                    this.scanPageImages();
+                }
+            }, 1000);
         }
         
         // Listen for messages from popup
@@ -58,7 +72,14 @@ class DeepDetectContent {
                 mutation.addedNodes.forEach((node) => {
                     if (node.nodeType === Node.ELEMENT_NODE) {
                         const images = node.tagName === 'IMG' ? [node] : node.querySelectorAll('img');
-                        images.forEach(img => this.processNewImage(img));
+                        images.forEach(img => {
+                            // Wait for image to load
+                            if (img.complete) {
+                                this.processNewImage(img);
+                            } else {
+                                img.addEventListener('load', () => this.processNewImage(img));
+                            }
+                        });
                     }
                 });
             });
@@ -70,31 +91,56 @@ class DeepDetectContent {
         });
 
         // Process existing images
-        document.querySelectorAll('img').forEach(img => this.processNewImage(img));
+        setTimeout(() => {
+            document.querySelectorAll('img').forEach(img => {
+                if (img.complete) {
+                    this.processNewImage(img);
+                } else {
+                    img.addEventListener('load', () => this.processNewImage(img));
+                }
+            });
+        }, 500);
     }
 
     processNewImage(img) {
-        if (this.processedImages.has(img.src)) return;
+        if (!img.src || this.processedImages.has(img.src)) return;
         
         // Filter out small images, icons, etc.
-        if (img.naturalWidth < 100 || img.naturalHeight < 100) return;
+        if (img.naturalWidth < 50 || img.naturalHeight < 50) return;
         if (img.src.startsWith('data:')) return;
+        if (img.src.includes('icon') || img.src.includes('logo')) return;
         
         this.processedImages.add(img.src);
         
         if (this.settings.autoScan) {
-            this.analyzeImage(img);
+            // Add small delay to avoid overwhelming the server
+            setTimeout(() => this.analyzeImage(img), Math.random() * 2000);
         }
     }
 
     async analyzeImage(imgElement) {
+        if (this.isScanning) return;
+        
         try {
             // Show loading indicator
             this.showImageOverlay(imgElement, 'loading', 'Analyzing...');
             
-            // Convert image to blob
-            const response = await fetch(imgElement.src);
+            // Convert image to blob with proper error handling
+            const response = await fetch(imgElement.src, {
+                mode: 'cors',
+                credentials: 'omit'
+            });
+            
+            if (!response.ok) {
+                throw new Error(`Failed to fetch image: ${response.status}`);
+            }
+            
             const blob = await response.blob();
+            
+            // Check if blob is valid
+            if (blob.size === 0) {
+                throw new Error('Empty image file');
+            }
             
             // Create form data
             const formData = new FormData();
@@ -104,23 +150,34 @@ class DeepDetectContent {
             const analysisResponse = await fetch(`${this.serverUrl}/analyze`, {
                 method: 'POST',
                 body: formData
-            });
+                signal: AbortSignal.timeout(15000) // 15 second timeout
             
             if (!analysisResponse.ok) {
-                throw new Error(`Analysis failed: ${analysisResponse.status}`);
+                const errorText = await analysisResponse.text();
+                throw new Error(`Analysis failed: ${analysisResponse.status} - ${errorText}`);
             }
             
             const result = await analysisResponse.json();
+            
+            if (!result || !result.class_probs) {
+                throw new Error('Invalid response from server');
+            }
+            
             this.handleAnalysisResult(imgElement, result);
             
         } catch (error) {
             console.error('Image analysis error:', error);
-            this.showImageOverlay(imgElement, 'error', 'Analysis failed');
+            this.showImageOverlay(imgElement, 'error', `Error: ${error.message}`);
+            
+            // Remove overlay after 3 seconds for errors
+            setTimeout(() => {
+                this.removeImageOverlay(imgElement);
+            }, 3000);
         }
     }
 
     handleAnalysisResult(imgElement, result) {
-        const confidence = Math.round(result.probabilities.real * 100);
+        const confidence = Math.round((result.class_probs?.real || result.probabilities?.real || 0) * 100);
         const isSuspicious = result.label !== 'real';
         
         if (isSuspicious && this.settings.highlightSuspicious) {
@@ -129,7 +186,8 @@ class DeepDetectContent {
         
         if (this.settings.showConfidence) {
             const status = result.label === 'real' ? 'authentic' : 
-                          result.label === 'fake' ? 'suspicious' : 'uncertain';
+                          result.label === 'ai_generated' ? 'suspicious' : 
+                          result.label === 'deepfake' ? 'suspicious' : 'uncertain';
             this.showImageOverlay(imgElement, status, `${confidence}% confidence`);
         } else {
             this.removeImageOverlay(imgElement);
@@ -137,6 +195,15 @@ class DeepDetectContent {
         
         // Store result for popup access
         imgElement.dataset.deepdetectResult = JSON.stringify(result);
+        
+        // Notify background script about scan results
+        chrome.runtime.sendMessage({
+            action: 'updateBadge',
+            suspicious: isSuspicious ? 1 : 0,
+            total: 1
+        }).catch(() => {
+            // Ignore errors if background script is not available
+        });
     }
 
     highlightSuspiciousImage(imgElement, result) {
@@ -332,6 +399,86 @@ class DeepDetectContent {
     }
 
     async scanPageImages() {
+        if (this.isScanning) {
+            console.log('Scan already in progress');
+            return;
+        }
+        
+        this.isScanning = true;
+        
+        try {
+            // Clear previous results
+            this.processedImages.clear();
+            
+            // Find all images on the page
+            const images = Array.from(document.querySelectorAll('img'))
+                .filter(img => {
+                    return img.naturalWidth > 50 && 
+                           img.naturalHeight > 50 && 
+                           img.src && 
+                           !img.src.startsWith('data:') &&
+                           !img.src.includes('icon') &&
+                           !img.src.includes('logo') &&
+                           img.complete;
+                });
+            
+            console.log(`Found ${images.length} images to analyze`);
+            
+            if (images.length === 0) {
+                console.log('No suitable images found on this page');
+                return;
+            }
+
+            let analyzed = 0;
+            let suspicious = 0;
+            
+            // Analyze images with controlled concurrency
+            const batchSize = 3; // Process 3 images at a time
+            for (let i = 0; i < images.length; i += batchSize) {
+                const batch = images.slice(i, i + batchSize);
+                
+                await Promise.allSettled(
+                    batch.map(async (img) => {
+                        try {
+                            await this.analyzeImage(img);
+                            analyzed++;
+                            
+                            // Check if image was marked as suspicious
+                            const result = img.dataset.deepdetectResult;
+                            if (result) {
+                                const parsedResult = JSON.parse(result);
+                                if (parsedResult.label !== 'real') {
+                                    suspicious++;
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error analyzing image:', error);
+                        }
+                    })
+                );
+                
+                // Small delay between batches
+                if (i + batchSize < images.length) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                }
+            }
+            
+            console.log(`Scan complete: ${analyzed} analyzed, ${suspicious} suspicious`);
+            
+            // Update badge
+            chrome.runtime.sendMessage({
+                action: 'updateBadge',
+                total: analyzed,
+                suspicious: suspicious
+            }).catch(() => {
+                // Ignore errors if background script is not available
+            });
+            
+        } catch (error) {
+            console.error('Page scan error:', error);
+        } finally {
+            this.isScanning = false;
+        }
         const images = Array.from(document.querySelectorAll('img'))
             .filter(img => {
                 return img.naturalWidth > 100 && 
@@ -340,14 +487,6 @@ class DeepDetectContent {
                        !img.src.startsWith('data:') &&
                        img.complete;
             });
-        
-        for (const img of images) {
-            if (!this.processedImages.has(img.src)) {
-                await this.analyzeImage(img);
-                // Small delay to prevent overwhelming the server
-                await new Promise(resolve => setTimeout(resolve, 100));
-            }
-        }
     }
 
     handleMessage(request, sender, sendResponse) {
@@ -355,16 +494,20 @@ class DeepDetectContent {
             case 'scanPage':
                 this.scanPageImages().then(() => {
                     sendResponse({ success: true });
+                }).catch(error => {
+                    sendResponse({ success: false, error: error.message });
                 });
                 return true; // Keep message channel open for async response
                 
             case 'getPageImages':
                 const images = Array.from(document.querySelectorAll('img'))
                     .filter(img => {
-                        return img.naturalWidth > 100 && 
-                               img.naturalHeight > 100 && 
+                        return img.naturalWidth > 50 && 
+                               img.naturalHeight > 50 && 
                                img.src && 
                                !img.src.startsWith('data:') &&
+                               !img.src.includes('icon') &&
+                               !img.src.includes('logo') &&
                                img.complete;
                     })
                     .map(img => ({
@@ -382,7 +525,11 @@ class DeepDetectContent {
             case 'updateSettings':
                 this.settings = request.settings;
                 this.serverUrl = request.settings.serverUrl;
+                sendResponse({ success: true });
                 break;
+                
+            default:
+                sendResponse({ error: 'Unknown action' });
         }
     }
 }

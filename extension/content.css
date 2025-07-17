@@ -80,6 +80,8 @@
 /* Highlighted suspicious images */
 img[style*="border: 3px solid #ef4444"] {
     animation: deepdetect-suspicious-pulse 2s infinite !important;
+    position: relative !important;
+    z-index: 999 !important;
 }
 
 @keyframes deepdetect-fade-in {
@@ -113,6 +115,35 @@ img[style*="border: 3px solid #ef4444"] {
     }
 }
 
+/* Loading indicator for images being analyzed */
+.deepdetect-analyzing {
+    position: relative !important;
+}
+
+.deepdetect-analyzing::after {
+    content: '' !important;
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    background: rgba(37, 99, 235, 0.1) !important;
+    border: 2px solid var(--primary-color) !important;
+    border-radius: 4px !important;
+    animation: deepdetect-analyzing-pulse 1.5s infinite !important;
+    z-index: 998 !important;
+}
+
+@keyframes deepdetect-analyzing-pulse {
+    0%, 100% {
+        opacity: 0.3;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.7;
+        transform: scale(1.02);
+    }
+}
 /* Ensure overlays don't interfere with page layout */
 .deepdetect-overlay,
 .deepdetect-warning-icon {
