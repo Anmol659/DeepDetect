@@ -76,17 +76,18 @@
 
                     <div class="scan-actions">
                         <button class="btn btn-primary" id="scanPageBtn">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                                <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
+                                <path d="21 21l-4.35-4.35" stroke="currentColor" stroke-width="2"/>
                             </svg>
-                            Scan Page
+                            <span>Scan Page</span>
                         </button>
                         <button class="btn btn-secondary" id="clearResultsBtn">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
                                 <path d="M3 6h18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                                 <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6m3 0V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                             </svg>
-                            Clear
+                            <span>Clear</span>
                         </button>
                     </div>
                 </div>
@@ -103,13 +104,13 @@
 
                 <div class="quick-upload">
                     <div class="upload-area" id="uploadArea">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
                             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                             <polyline points="7,10 12,15 17,10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                             <line x1="12" y1="15" x2="12" y2="3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                         </svg>
-                        <p>Drop image here or click to upload</p>
-                        <span>JPG, PNG, WebP (Max 50MB)</span>
+                        <p>Drop files here or click to upload</p>
+                        <span>Images & Videos • JPG, PNG, WebP, MP4 • Max 50MB</span>
                     </div>
                     <input type="file" id="fileInput" accept="image/*" hidden>
                 </div>
@@ -127,7 +128,7 @@
                 </div>
                 <div class="results-list" id="resultsList">
                     <div class="empty-state">
-                        <svg width="48" height="48" viewBox="0 0 24 24" fill="none">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none">
                             <circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2"/>
                             <path d="21 21l-4.35-4.35" stroke="currentColor" stroke-width="2"/>
                         </svg>
@@ -140,7 +141,7 @@
             <!-- Settings Tab -->
             <div class="tab-panel" id="settings">
                 <div class="settings-section">
-                    <h3>Detection Settings</h3>
+                    <h3>🔍 Detection Settings</h3>
                     <div class="setting-item">
                         <label class="setting-label">
                             <span>Auto-scan on page load</span>
@@ -168,10 +169,19 @@
                             </div>
                         </label>
                     </div>
+                    <div class="setting-item">
+                        <label class="setting-label">
+                            <span>Use enhanced analysis (TTA)</span>
+                            <div class="toggle">
+                                <input type="checkbox" id="useEnhancedAnalysis" checked>
+                                <span class="toggle-slider"></span>
+                            </div>
+                        </label>
+                    </div>
                 </div>
 
                 <div class="settings-section">
-                    <h3>Server Configuration</h3>
+                    <h3>⚙️ Server Configuration</h3>
                     <div class="setting-item">
                         <label for="serverUrl">Backend URL</label>
                         <input type="text" id="serverUrl" value="http://localhost:5000" placeholder="http://localhost:5000">
@@ -184,13 +194,14 @@
                 </div>
 
                 <div class="settings-section">
-                    <h3>About</h3>
+                    <h3>ℹ️ About</h3>
                     <div class="about-info">
-                        <p>DeepDetect uses advanced AI to identify manipulated media content.</p>
+                        <p>DeepDetect v2.0 uses enhanced AI models with attention mechanisms and test-time augmentation for superior deepfake detection accuracy.</p>
                         <div class="about-links">
                             <a href="#" class="link">Documentation</a>
                             <a href="#" class="link">Privacy Policy</a>
                             <a href="#" class="link">Report Issue</a>
+                            <a href="#" class="link">Model Information</a>
                         </div>
                     </div>
                 </div>
