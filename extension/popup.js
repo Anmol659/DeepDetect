@@ -131,13 +131,98 @@ class DeepDetectPopup {
         
         scanBtn.disabled = true;
         progressSection.style.display = 'block';
+        this.updateProgress(0, 'Starting scan...');
         
         try {
             // Get current tab
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             
-            // Inject content script to find images
-            const results = await chrome.scripting.executeScript({
+            // Ensure content script is injected
+            try {
+                await chrome.scripting.executeScript({
+                    target: { tabId: tab.id },
+                    files: ['content.js']
+                });
+            } catch (error) {
+                // Content script might already be injected
+                console.log('Content script injection result:', error.message);
+            }
+
+            // Wait a moment for content script to initialize
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Send scan message to content script
+            const response = await new Promise((resolve, reject) => {
+                chrome.tabs.sendMessage(tab.id, { action: 'scanPage' }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                    } else {
+                        resolve(response);
+                    }
+                });
+            });
+
+            if (!response || !response.success) {
+                throw new Error(response?.message || 'Scan failed');
+            }
+
+            this.updateProgress(100, 'Scan complete');
+            this.updateStats(response.count || 0, response.count || 0, response.suspicious || 0);
+            
+            // Refresh results
+            await this.loadScanResults();
+            this.updateResultsList();
+            
+            this.showToast('success', 'Scan Complete', 
+                `Analyzed ${response.count || 0} images, found ${response.suspicious || 0} suspicious`);
+
+        } catch (error) {
+            console.error('Scan error:', error);
+            this.showToast('error', 'Scan Failed', error.message || 'Failed to scan page images');
+            this.updateProgress(0, 'Scan failed');
+        } finally {
+            progressSection.style.display = 'none';
+            scanBtn.disabled = false;
+        }
+    }
+
+    // Remove the old findImagesOnPage function and replace with this
+    async getPageImages() {
+        try {
+            const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+            
+            const response = await new Promise((resolve, reject) => {
+                chrome.tabs.sendMessage(tab.id, { action: 'getPageImages' }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        reject(new Error(chrome.runtime.lastError.message));
+                    } else {
+                        resolve(response);
+                    }
+                });
+            });
+
+            return response?.images || [];
+        } catch (error) {
+            console.error('Failed to get page images:', error);
+            return [];
+        }
+    }
+
+    // Add progress update handler
+    setupProgressListener() {
+        chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+            if (request.action === 'scanProgress') {
+                const percent = request.total > 0 ? (request.analyzed / request.total) * 100 : 0;
+                this.updateProgress(percent, `Analyzing image ${request.analyzed} of ${request.total}`);
+                this.updateStats(request.total, request.analyzed, request.suspicious);
+            }
+        });
+    }
+
+    async init() {
+        this.setupEventListeners();
+        this.setupTabs();
+        this.setupProgressListener(); // Add this line
                 target: { tabId: tab.id },
                 function: this.findImagesOnPage
             });

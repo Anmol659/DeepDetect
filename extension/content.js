@@ -5,19 +5,31 @@ class DeepDetectContent {
         this.settings = {};
         this.processedImages = new Set();
         this.overlays = new Map();
+        this.isScanning = false;
+        this.scanResults = [];
         
         this.init();
     }
 
     async init() {
+        console.log('DeepDetect content script initializing...');
         await this.loadSettings();
         this.setupImageObserver();
         
-        if (this.settings.autoScan) {
-            this.scanPageImages();
+        // Wait for page to be fully loaded before auto-scanning
+        if (document.readyState === 'complete') {
+            if (this.settings.autoScan) {
+                setTimeout(() => this.scanPageImages(), 1000);
+            }
+        } else {
+            window.addEventListener('load', () => {
+                if (this.settings.autoScan) {
+                    setTimeout(() => this.scanPageImages(), 1000);
+                }
+            });
         }
         
-        // Listen for messages from popup
+        // Listen for messages from popup and background
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             this.handleMessage(request, sender, sendResponse);
             return true; // Keep message channel open for async responses
@@ -26,6 +38,8 @@ class DeepDetectContent {
         // Mark content script as loaded
         window.deepDetectLoaded = true;
         window.deepDetectContent = this;
+        
+        console.log('DeepDetect content script initialized');
     }
 
     async loadSettings() {
@@ -40,6 +54,7 @@ class DeepDetectContent {
             
             this.settings = result;
             this.serverUrl = result.serverUrl;
+            console.log('Settings loaded:', this.settings);
         } catch (error) {
             console.error('Failed to load settings:', error);
             this.settings = {
@@ -76,13 +91,20 @@ class DeepDetectContent {
     processNewImage(img) {
         if (this.processedImages.has(img.src)) return;
         
+        // Wait for image to load
+        if (!img.complete) {
+            img.addEventListener('load', () => this.processNewImage(img));
+            return;
+        }
+        
         // Filter out small images, icons, etc.
         if (img.naturalWidth < 100 || img.naturalHeight < 100) return;
         if (img.src.startsWith('data:')) return;
+        if (img.src.includes('icon') || img.src.includes('logo')) return;
         
         this.processedImages.add(img.src);
         
-        if (this.settings.autoScan) {
+        if (this.settings.autoScan && !this.isScanning) {
             this.analyzeImage(img);
         }
     }
@@ -92,19 +114,37 @@ class DeepDetectContent {
             // Show loading indicator
             this.showImageOverlay(imgElement, 'loading', 'Analyzing...');
             
-            // Convert image to blob
-            const response = await fetch(imgElement.src);
-            const blob = await response.blob();
+            // Convert image to blob with error handling
+            let blob;
+            try {
+                const response = await fetch(imgElement.src, {
+                    mode: 'cors',
+                    credentials: 'omit'
+                });
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch image: ${response.status}`);
+                }
+                blob = await response.blob();
+            } catch (fetchError) {
+                console.warn('Failed to fetch image directly, trying canvas conversion:', fetchError);
+                blob = await this.convertImageToBlob(imgElement);
+            }
             
             // Create form data
             const formData = new FormData();
             formData.append('file', blob, 'image.jpg');
             
-            // Send to backend
+            // Send to backend with timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+            
             const analysisResponse = await fetch(`${this.serverUrl}/analyze`, {
                 method: 'POST',
-                body: formData
+                body: formData,
+                signal: controller.signal
             });
+            
+            clearTimeout(timeoutId);
             
             if (!analysisResponse.ok) {
                 throw new Error(`Analysis failed: ${analysisResponse.status}`);
@@ -113,14 +153,49 @@ class DeepDetectContent {
             const result = await analysisResponse.json();
             this.handleAnalysisResult(imgElement, result);
             
+            // Store result for popup access
+            this.scanResults.push({
+                src: imgElement.src,
+                result: result,
+                timestamp: Date.now()
+            });
+            
         } catch (error) {
             console.error('Image analysis error:', error);
             this.showImageOverlay(imgElement, 'error', 'Analysis failed');
         }
     }
 
+    async convertImageToBlob(imgElement) {
+        return new Promise((resolve, reject) => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = imgElement.naturalWidth;
+            canvas.height = imgElement.naturalHeight;
+            
+            try {
+                ctx.drawImage(imgElement, 0, 0);
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        resolve(blob);
+                    } else {
+                        reject(new Error('Failed to convert image to blob'));
+                    }
+                }, 'image/jpeg', 0.8);
+            } catch (error) {
+                reject(error);
+            }
+        });
+    }
+
     handleAnalysisResult(imgElement, result) {
-        const confidence = Math.round(result.probabilities.real * 100);
+        const maxProb = Math.max(
+            result.class_probs?.ai_generated || 0,
+            result.class_probs?.deepfake || 0,
+            result.class_probs?.real || 0
+        );
+        const confidence = Math.round(maxProb * 100);
         const isSuspicious = result.label !== 'real';
         
         if (isSuspicious && this.settings.highlightSuspicious) {
@@ -148,22 +223,6 @@ class DeepDetectContent {
         const warningIcon = document.createElement('div');
         warningIcon.className = 'deepdetect-warning-icon';
         warningIcon.innerHTML = '⚠️';
-        warningIcon.style.cssText = `
-            position: absolute;
-            top: 5px;
-            right: 5px;
-            background: #ef4444;
-            color: white;
-            border-radius: 50%;
-            width: 24px;
-            height: 24px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 12px;
-            z-index: 1000;
-            cursor: pointer;
-        `;
         
         // Make parent relative if needed
         const parent = imgElement.parentElement;
@@ -185,29 +244,6 @@ class DeepDetectContent {
         const overlay = document.createElement('div');
         overlay.className = `deepdetect-overlay deepdetect-${type}`;
         overlay.textContent = text;
-        
-        const colors = {
-            loading: '#f59e0b',
-            authentic: '#10b981',
-            suspicious: '#ef4444',
-            uncertain: '#f59e0b',
-            error: '#6b7280'
-        };
-        
-        overlay.style.cssText = `
-            position: absolute;
-            bottom: 5px;
-            left: 5px;
-            background: ${colors[type] || '#6b7280'};
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 11px;
-            font-weight: 500;
-            z-index: 1000;
-            pointer-events: none;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        `;
         
         // Make parent relative if needed
         const parent = imgElement.parentElement;
@@ -239,19 +275,6 @@ class DeepDetectContent {
     showDetailedResult(imgElement, result) {
         const modal = document.createElement('div');
         modal.className = 'deepdetect-modal';
-        modal.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.8);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        `;
         
         const content = document.createElement('div');
         content.style.cssText = `
@@ -264,9 +287,9 @@ class DeepDetectContent {
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4);
         `;
         
-        const confidence = Math.round(result.probabilities.real * 100);
-        const aiGenerated = Math.round(result.probabilities.ai_generated * 100);
-        const deepfake = Math.round(result.probabilities.deepfake * 100);
+        const confidence = Math.round((result.class_probs?.real || 0) * 100);
+        const aiGenerated = Math.round((result.class_probs?.ai_generated || 0) * 100);
+        const deepfake = Math.round((result.class_probs?.deepfake || 0) * 100);
         
         content.innerHTML = `
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
@@ -332,66 +355,184 @@ class DeepDetectContent {
     }
 
     async scanPageImages() {
-        const images = Array.from(document.querySelectorAll('img'))
-            .filter(img => {
-                return img.naturalWidth > 100 && 
-                       img.naturalHeight > 100 && 
-                       img.src && 
-                       !img.src.startsWith('data:') &&
-                       img.complete;
-            });
-        
-        for (const img of images) {
-            if (!this.processedImages.has(img.src)) {
-                await this.analyzeImage(img);
+        if (this.isScanning) {
+            console.log('Scan already in progress');
+            return { success: false, message: 'Scan already in progress' };
+        }
+
+        this.isScanning = true;
+        console.log('Starting page scan...');
+
+        try {
+            const images = Array.from(document.querySelectorAll('img'))
+                .filter(img => {
+                    return img.complete &&
+                           img.naturalWidth > 100 && 
+                           img.naturalHeight > 100 && 
+                           img.src && 
+                           !img.src.startsWith('data:') &&
+                           !img.src.includes('icon') &&
+                           !img.src.includes('logo');
+                });
+
+            console.log(`Found ${images.length} images to analyze`);
+
+            if (images.length === 0) {
+                return { success: true, message: 'No images found to analyze', count: 0 };
+            }
+
+            let analyzed = 0;
+            let suspicious = 0;
+
+            // Send progress update
+            chrome.runtime.sendMessage({
+                action: 'scanProgress',
+                total: images.length,
+                analyzed: 0,
+                suspicious: 0
+            }).catch(() => {}); // Ignore errors if popup is closed
+
+            for (let i = 0; i < images.length; i++) {
+                const img = images[i];
+                
+                try {
+                    await this.analyzeImage(img);
+                    analyzed++;
+                    
+                    // Check if image was marked as suspicious
+                    const result = img.dataset.deepdetectResult;
+                    if (result) {
+                        const parsedResult = JSON.parse(result);
+                        if (parsedResult.label !== 'real') {
+                            suspicious++;
+                        }
+                    }
+                    
+                    // Send progress update
+                    chrome.runtime.sendMessage({
+                        action: 'scanProgress',
+                        total: images.length,
+                        analyzed: analyzed,
+                        suspicious: suspicious
+                    }).catch(() => {}); // Ignore errors if popup is closed
+                    
+                } catch (error) {
+                    console.error(`Error analyzing image ${i + 1}:`, error);
+                }
+                
                 // Small delay to prevent overwhelming the server
                 await new Promise(resolve => setTimeout(resolve, 100));
             }
+
+            console.log(`Scan complete: ${analyzed} analyzed, ${suspicious} suspicious`);
+            
+            // Update badge
+            chrome.runtime.sendMessage({
+                action: 'updateBadge',
+                count: analyzed,
+                suspicious: suspicious
+            }).catch(() => {});
+
+            return { 
+                success: true, 
+                message: `Scan complete: ${analyzed} images analyzed, ${suspicious} suspicious`,
+                count: analyzed,
+                suspicious: suspicious
+            };
+
+        } catch (error) {
+            console.error('Scan error:', error);
+            return { success: false, message: error.message };
+        } finally {
+            this.isScanning = false;
         }
     }
 
-    handleMessage(request, sender, sendResponse) {
-        switch (request.action) {
-            case 'scanPage':
-                this.scanPageImages().then(() => {
+    async handleMessage(request, sender, sendResponse) {
+        console.log('Content script received message:', request);
+        
+        try {
+            switch (request.action) {
+                case 'scanPage':
+                    const result = await this.scanPageImages();
+                    sendResponse(result);
+                    break;
+                    
+                case 'getPageImages':
+                    const images = Array.from(document.querySelectorAll('img'))
+                        .filter(img => {
+                            return img.complete &&
+                                   img.naturalWidth > 100 && 
+                                   img.naturalHeight > 100 && 
+                                   img.src && 
+                                   !img.src.startsWith('data:');
+                        })
+                        .map(img => ({
+                            src: img.src,
+                            width: img.naturalWidth,
+                            height: img.naturalHeight,
+                            alt: img.alt || '',
+                            result: img.dataset.deepdetectResult ? 
+                                   JSON.parse(img.dataset.deepdetectResult) : null
+                        }));
+                    
+                    sendResponse({ images });
+                    break;
+                    
+                case 'updateSettings':
+                    this.settings = { ...this.settings, ...request.settings };
+                    this.serverUrl = request.settings.serverUrl || this.serverUrl;
                     sendResponse({ success: true });
-                });
-                return true; // Keep message channel open for async response
-                
-            case 'getPageImages':
-                const images = Array.from(document.querySelectorAll('img'))
-                    .filter(img => {
-                        return img.naturalWidth > 100 && 
-                               img.naturalHeight > 100 && 
-                               img.src && 
-                               !img.src.startsWith('data:') &&
-                               img.complete;
-                    })
-                    .map(img => ({
-                        src: img.src,
-                        width: img.naturalWidth,
-                        height: img.naturalHeight,
-                        alt: img.alt || '',
-                        result: img.dataset.deepdetectResult ? 
-                               JSON.parse(img.dataset.deepdetectResult) : null
-                    }));
-                
-                sendResponse({ images });
-                break;
-                
-            case 'updateSettings':
-                this.settings = request.settings;
-                this.serverUrl = request.settings.serverUrl;
-                break;
+                    break;
+
+                case 'getScanResults':
+                    sendResponse({ results: this.scanResults });
+                    break;
+
+                case 'clearResults':
+                    this.scanResults = [];
+                    // Clear all overlays
+                    this.overlays.forEach(overlay => {
+                        if (overlay.parentNode) overlay.remove();
+                    });
+                    this.overlays.clear();
+                    sendResponse({ success: true });
+                    break;
+                    
+                default:
+                    sendResponse({ error: 'Unknown action' });
+            }
+        } catch (error) {
+            console.error('Error handling message:', error);
+            sendResponse({ error: error.message });
         }
     }
 }
 
-// Initialize content script
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
+// Initialize content script with proper timing
+function initializeContentScript() {
+    if (window.deepDetectContent) {
+        console.log('DeepDetect content script already initialized');
+        return;
+    }
+    
+    try {
         new DeepDetectContent();
-    });
-} else {
-    new DeepDetectContent();
+    } catch (error) {
+        console.error('Failed to initialize DeepDetect content script:', error);
+    }
 }
+
+// Initialize based on document state
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeContentScript);
+} else {
+    initializeContentScript();
+}
+
+// Also initialize on window load as backup
+window.addEventListener('load', () => {
+    if (!window.deepDetectContent) {
+        initializeContentScript();
+    }
+});
