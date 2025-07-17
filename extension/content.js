@@ -20,7 +20,12 @@ class DeepDetectContent {
         // Listen for messages from popup
         chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
             this.handleMessage(request, sender, sendResponse);
+            return true; // Keep message channel open for async responses
         });
+        
+        // Mark content script as loaded
+        window.deepDetectLoaded = true;
+        window.deepDetectContent = this;
     }
 
     async loadSettings() {

@@ -137,8 +137,13 @@ class DeepDetectBackground {
                 method: 'GET',
                 signal: AbortSignal.timeout(5000)
             });
-            return response.ok;
+            if (response.ok) {
+                const data = await response.json();
+                return data.status === 'healthy';
+            }
+            return false;
         } catch (error) {
+            console.error('Server connection check failed:', error);
             return false;
         }
     }

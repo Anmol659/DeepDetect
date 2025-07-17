@@ -233,7 +233,8 @@ class DeepDetectPopup {
             // Send to backend
             const analysisResponse = await fetch(`${this.serverUrl}/analyze`, {
                 method: 'POST',
-                body: formData
+                body: formData,
+                signal: AbortSignal.timeout(30000) // 30 second timeout
             });
             
             if (!analysisResponse.ok) {
@@ -244,6 +245,9 @@ class DeepDetectPopup {
             
         } catch (error) {
             console.error('Image analysis error:', error);
+            if (error.name === 'AbortError') {
+                throw new Error('Analysis timed out');
+            }
             return null;
         }
     }

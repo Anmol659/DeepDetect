@@ -7,6 +7,11 @@ from inference import predict_image, predict_video
 app = Flask(__name__)
 CORS(app)
 
+# Health check endpoint for extension
+@app.route("/health", methods=["GET"])
+def health_check():
+    return jsonify({"status": "healthy", "message": "DeepDetect API is running"}), 200
+
 @app.route("/", methods=["GET"])
 def index():
     return render_template("index.html")
@@ -40,7 +45,8 @@ def analyze():
     return jsonify({
         "label": result["label"],
         "confidence": result["confidence"],
-        "class_probs": result["class_probs"]
+        "class_probs": result["class_probs"],
+        "probabilities": result["class_probs"]  # Add this for extension compatibility
     })
 
 if __name__ == "__main__":
