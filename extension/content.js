@@ -151,6 +151,8 @@ class DeepDetectContent {
                 method: 'POST',
                 body: formData
                 signal: AbortSignal.timeout(15000) // 15 second timeout
+            }
+            )
             
             if (!analysisResponse.ok) {
                 const errorText = await analysisResponse.text();
