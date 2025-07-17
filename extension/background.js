@@ -91,29 +91,26 @@ class DeepDetectBackground {
             const settings = await chrome.storage.sync.get(['autoScan']);
             
             if (settings.autoScan) {
-                // Small delay to ensure page is fully loaded
-                setTimeout(async () => {
+                // Inject content script if not already present
                 try {
-                        // Inject content script
+                    await chrome.scripting.executeScript({
+                        target: { tabId },
+                        function: () => {
+                            // Check if content script is already loaded
+                            return window.deepDetectLoaded || false;
+                        }
+                    });
+                } catch (error) {
+                    // Content script not loaded, inject it
+                    try {
                         await chrome.scripting.executeScript({
                             target: { tabId },
                             files: ['content.js']
                         });
-                        
-                        // Wait for content script to initialize
-                        setTimeout(() => {
-                            chrome.tabs.sendMessage(tabId, { 
-                                action: 'updateSettings', 
-                                settings: settings 
-                            }).catch(() => {
-                                // Ignore errors if content script not ready
-                            });
-                        }, 1000);
-                        
-                    } catch (error) {
-                        console.error('Failed to inject content script:', error);
+                    } catch (injectionError) {
+                        console.error('Failed to inject content script:', injectionError);
                     }
-                }, 2000); // 2 second delay
+                }
             }
         }
     }
