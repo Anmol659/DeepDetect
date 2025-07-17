@@ -40,7 +40,7 @@ class DeepDetectBackground {
             // Show welcome notification
             chrome.notifications.create({
                 type: 'basic',
-                iconUrl: 'icons/icon48.png',
+                //iconUrl: 'icons/icon48.png',
                 title: 'DeepDetect Installed',
                 message: 'AI-powered media authentication is now active. Click the extension icon to get started.'
             });
