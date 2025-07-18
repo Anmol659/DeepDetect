@@ -95,21 +95,12 @@ def main():
     model_available = check_model_files()
     if not model_available:
         print("\n⚠ Continuing without trained model (fallback mode)")
-        response = input("Continue anyway? (y/n): ").lower().strip()
-        if response not in ['y', 'yes']:
-            print("Setup cancelled. Please ensure model checkpoint exists for full functionality.")
-            sys.exit(1)
     
     # Print extension setup instructions
     print_extension_instructions()
     
-    # Ask user if they want to start the server
-    response = input("\nStart the Flask server now? (y/n): ").lower().strip()
-    if response in ['y', 'yes']:
-        start_flask_server()
-    else:
-        print("You can start the server later by running: python backend/app.py")
-        print("Remember to start the server before using the Chrome extension!")
+    # Start the server automatically
+    start_flask_server()
 
 if __name__ == "__main__":
     main()
