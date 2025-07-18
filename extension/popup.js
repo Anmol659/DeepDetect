@@ -271,6 +271,7 @@ class DeepDetectPopup {
     async handleFileSelect(event) {
         const file = event.target.files[0];
         if (file) {
+            console.log(`Selected file: ${file.name}, type: ${file.type}, size: ${file.size}`);
             await this.analyzeUploadedFile(file);
         }
     }
@@ -282,6 +283,7 @@ class DeepDetectPopup {
         
         const files = event.dataTransfer.files;
         if (files.length > 0) {
+            console.log(`Dropped file: ${files[0].name}, type: ${files[0].type}, size: ${files[0].size}`);
             await this.analyzeUploadedFile(files[0]);
         }
     }

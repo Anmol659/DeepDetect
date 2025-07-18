@@ -125,37 +125,101 @@ class DeepDetectContent {
             // Show loading indicator
             this.showImageOverlay(imgElement, 'loading', 'Analyzing...');
             
-            // Convert image to blob with proper error handling
-            const response = await fetch(imgElement.src, {
-                mode: 'cors',
-                credentials: 'omit'
-            });
+            // Better image to blob conversion with proper MIME type detection
+            let blob;
             
-            if (!response.ok) {
-                throw new Error(`Failed to fetch image: ${response.status}`);
+            try {
+                // Try to fetch the image with proper headers
+                const response = await fetch(imgElement.src, {
+                    mode: 'cors',
+                    credentials: 'omit',
+                    headers: {
+                        'Accept': 'image/*'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch image: ${response.status}`);
+                }
+                
+                blob = await response.blob();
+                
+                // If blob doesn't have proper MIME type, try to detect it
+                if (!blob.type || blob.type === 'application/octet-stream') {
+                    // Convert image element to canvas and then to blob with proper MIME type
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    
+                    canvas.width = imgElement.naturalWidth;
+                    canvas.height = imgElement.naturalHeight;
+                    
+                    // Draw image to canvas
+                    ctx.drawImage(imgElement, 0, 0);
+                    
+                    // Convert canvas to blob with proper MIME type
+                    blob = await new Promise(resolve => {
+                        canvas.toBlob(resolve, 'image/jpeg', 0.9);
+                    });
+                }
+            } catch (fetchError) {
+                console.warn('Direct fetch failed, trying canvas conversion:', fetchError);
+                
+                // Fallback: Convert image to canvas and then to blob
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                // Handle CORS issues by creating a new image
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                
+                blob = await new Promise((resolve, reject) => {
+                    img.onload = () => {
+                        canvas.width = img.naturalWidth;
+                        canvas.height = img.naturalHeight;
+                        ctx.drawImage(img, 0, 0);
+                        
+                        canvas.toBlob((blob) => {
+                            if (blob) {
+                                resolve(blob);
+                            } else {
+                                reject(new Error('Failed to convert image to blob'));
+                            }
+                        }, 'image/jpeg', 0.9);
+                    };
+                    
+                    img.onerror = () => reject(new Error('Failed to load image for conversion'));
+                    img.src = imgElement.src;
+                });
             }
-            
-            const blob = await response.blob();
             
             // Check if blob is valid
             if (blob.size === 0) {
                 throw new Error('Empty image file');
             }
             
+            console.log(`Analyzing image: ${imgElement.src}, blob type: ${blob.type}, size: ${blob.size}`);
+            
             // Create form data
             const formData = new FormData();
-            formData.append('file', blob, 'image.jpg');
+            
+            // Use proper filename based on blob type
+            let filename = 'image.jpg';
+            if (blob.type === 'image/png') filename = 'image.png';
+            else if (blob.type === 'image/webp') filename = 'image.webp';
+            else if (blob.type === 'image/gif') filename = 'image.gif';
+            
+            formData.append('file', blob, filename);
             
             // Send to backend
             const analysisResponse = await fetch(`${this.serverUrl}/analyze`, {
                 method: 'POST',
-                body: formData
+                body: formData,
                 signal: AbortSignal.timeout(15000) // 15 second timeout
-            }
-            )
+            });
             
             if (!analysisResponse.ok) {
                 const errorText = await analysisResponse.text();
+                console.error('Analysis failed:', errorText);
                 throw new Error(`Analysis failed: ${analysisResponse.status} - ${errorText}`);
             }
             
@@ -169,7 +233,18 @@ class DeepDetectContent {
             
         } catch (error) {
             console.error('Image analysis error:', error);
-            this.showImageOverlay(imgElement, 'error', `Error: ${error.message}`);
+            
+            // Show more user-friendly error messages
+            let errorMessage = 'Analysis failed';
+            if (error.message.includes('CORS')) {
+                errorMessage = 'Image blocked by CORS';
+            } else if (error.message.includes('timeout')) {
+                errorMessage = 'Analysis timeout';
+            } else if (error.message.includes('400')) {
+                errorMessage = 'Invalid image format';
+            }
+            
+            this.showImageOverlay(imgElement, 'error', errorMessage);
             
             // Remove overlay after 3 seconds for errors
             setTimeout(() => {

@@ -98,15 +98,48 @@ def analyze():
         if file.filename == "":
             return jsonify({"error": "No file selected"}), 400
 
-        content_type = file.content_type
+        # Get content type, with fallback detection
+        content_type = file.content_type or 'application/octet-stream'
         logger.info(f"Analyzing file: {file.filename} (type: {content_type})")
 
-        if content_type.startswith("image/"):
+        # Read file data first to check if it's valid
+        file_data = file.read()
+        if len(file_data) == 0:
+            return jsonify({"error": "Empty file"}), 400
+        
+        # Reset file pointer for potential re-reading
+        file.seek(0)
+        
+        # Detect actual file type from file data if content_type is generic
+        if content_type in ['binary/octet-stream', 'application/octet-stream']:
+            # Try to detect image type from file signature
+            if file_data.startswith(b'\xff\xd8\xff'):
+                content_type = 'image/jpeg'
+            elif file_data.startswith(b'\x89PNG\r\n\x1a\n'):
+                content_type = 'image/png'
+            elif file_data.startswith(b'GIF8'):
+                content_type = 'image/gif'
+            elif file_data.startswith(b'RIFF') and b'WEBP' in file_data[:12]:
+                content_type = 'image/webp'
+            elif file_data.startswith(b'\x00\x00\x00\x20ftypavif'):
+                content_type = 'image/avif'
+            else:
+                # Try to open with PIL to verify it's an image
+                try:
+                    from PIL import Image
+                    from io import BytesIO
+                    Image.open(BytesIO(file_data)).verify()
+                    content_type = 'image/unknown'  # Valid image but unknown format
+                except Exception:
+                    return jsonify({
+                        "error": "Invalid file format",
+                        "details": "File does not appear to be a valid image"
+                    }), 400
+        
+        logger.info(f"Detected content type: {content_type}")
+        # Accept images with any content type that we've verified
+        if content_type.startswith("image/") or content_type == 'image/unknown':
             # Enhanced image analysis
-            file_data = file.read()
-            if len(file_data) == 0:
-                return jsonify({"error": "Empty file"}), 400
-                
             result = predict_image(file_data, use_tta=MODEL_LOADED)
             
         elif content_type.startswith("video/") and MODEL_LOADED:
@@ -120,7 +153,8 @@ def analyze():
                 supported_types += " and videos (MP4, AVI, MOV)"
             return jsonify({
                 "error": f"Unsupported file type: {content_type}",
-                "supported_types": supported_types
+                "supported_types": supported_types,
+                "details": "Please ensure you're uploading a valid image file"
             }), 400
 
         if not result or "label" not in result or "class_probs" not in result:

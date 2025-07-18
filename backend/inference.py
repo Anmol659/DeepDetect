@@ -225,8 +225,23 @@ def predict_image(image_bytes, use_tta=True):
         Dictionary with prediction results
     """
     try:
+        # Validate input
+        if not image_bytes or len(image_bytes) == 0:
+            raise ValueError("Empty image data provided")
+        
+        logger.info(f"Processing image: {len(image_bytes)} bytes")
+        
         # Load and preprocess image
-        image = Image.open(BytesIO(image_bytes)).convert("RGB")
+        try:
+            image = Image.open(BytesIO(image_bytes)).convert("RGB")
+            logger.info(f"Image loaded successfully: {image.size}")
+        except Exception as e:
+            logger.error(f"Failed to load image: {e}")
+            raise ValueError(f"Invalid image format: {str(e)}")
+        
+        # Validate image size
+        if image.size[0] < 32 or image.size[1] < 32:
+            raise ValueError("Image too small (minimum 32x32 pixels)")
         
         # Basic prediction
         tensor = inference_transform(image).unsqueeze(0).to(device)
