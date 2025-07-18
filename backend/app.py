@@ -3,12 +3,14 @@ from flask_cors import CORS
 import tempfile
 import os
 import logging
+from PIL import Image
+from io import BytesIO
 
 # Import with error handling
 try:
     from inference import predict_image, predict_video, get_model_info, model
     MODEL_LOADED = model is not None
-    logging.info("✓ Enhanced inference module loaded successfully")
+    logging.info("✓ Inference module loaded successfully")
 except Exception as e:
     logging.error(f"Could not load inference module: {e}")
     MODEL_LOADED = False
@@ -29,7 +31,7 @@ except Exception as e:
                 "deepfake": 0.10,
                 "real": 0.85
             },
-            "description": "Dummy prediction - install model for accuracy",
+            "description": "Dummy prediction - model not loaded",
             "model_type": "dummy"
         }
     
@@ -51,6 +53,7 @@ CORS(app)
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 # Health check endpoint for extension
 @app.route("/health", methods=["GET"])
 def health_check():
@@ -84,10 +87,6 @@ def health_check():
 def index():
     return render_template("index.html")
 
-@app.route("/popup", methods=["GET"])
-def popup():
-    return send_from_directory('.', 'popup.html')
-
 @app.route("/analyze", methods=["POST"])
 def analyze():
     try:
@@ -103,44 +102,43 @@ def analyze():
         if len(file_data) == 0:
             return jsonify({"error": "Empty file"}), 400
         
-        # Simple content type detection
-        content_type = file.content_type or 'application/octet-stream'
-        logger.info(f"Analyzing file: {file.filename} (type: {content_type})")
+        logger.info(f"Analyzing file: {file.filename} (size: {len(file_data)} bytes)")
 
-        # Try to analyze as image first
+        # Validate image using PIL
         try:
-            from PIL import Image
-            from io import BytesIO
-            # Verify it's a valid image
-            Image.open(BytesIO(file_data)).verify()
+            # Try to open and verify the image
+            image = Image.open(BytesIO(file_data))
+            image.verify()  # Verify it's a valid image
+            
+            # Re-open for processing (verify() closes the file)
+            image = Image.open(BytesIO(file_data))
+            
+            # Convert to RGB if needed
+            if image.mode != 'RGB':
+                image = image.convert('RGB')
+            
+            logger.info(f"Valid image: {image.size}, mode: {image.mode}")
+            
             # Analyze image
             result = predict_image(file_data)
             
-        elif content_type.startswith("video/") and MODEL_LOADED:
-            # Video analysis
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
-                tmp.write(file_data)
-                tmp.flush()
-                result = predict_video(tmp.name)
-        else:
-            return jsonify({
-                "error": "Unsupported file type",
-                "details": f"File type {content_type} is not supported. Please upload an image file."
-            }), 400
         except Exception as image_error:
+            logger.error(f"Image validation failed: {image_error}")
             return jsonify({
                 "error": "Invalid image file",
                 "details": f"Could not process image: {str(image_error)}"
             }), 400
 
+        # Validate result
         if not result or "label" not in result or "class_probs" not in result:
+            logger.error("Analysis returned incomplete data")
             return jsonify({
-                "error": "Analysis failed or returned incomplete data",
+                "error": "Analysis failed",
                 "details": "The model could not process this file"
             }), 500
 
         # Return results
-        return jsonify({
+        response_data = {
             "label": result["label"],
             "confidence": result["confidence"],
             "confidence_level": result.get("confidence_level", "unknown"),
@@ -149,7 +147,10 @@ def analyze():
             "description": result.get("description", result["label"]),
             "model_loaded": MODEL_LOADED,
             "model_type": result.get("model_type", "unknown")
-        })
+        }
+        
+        logger.info(f"Analysis successful: {result['label']} ({result['confidence']:.3f})")
+        return jsonify(response_data)
         
     except Exception as e:
         logger.error(f"Analysis error: {e}")
@@ -159,53 +160,23 @@ def analyze():
             "details": "Please try again or contact support if the issue persists"
         }), 500
 
-# New endpoint for batch analysis
-@app.route("/analyze_batch", methods=["POST"])
-def analyze_batch():
-    """Analyze multiple files in a single request"""
-    if not MODEL_LOADED:
-        return jsonify({
-            "error": "Batch analysis requires trained model",
-            "details": "Please ensure the model is properly loaded"
-        }), 503
-    
+# Model information endpoint
+@app.route("/model_info", methods=["GET"])
+def model_info():
+    """Get detailed model information"""
     try:
-        files = request.files.getlist("files")
-        if not files:
-            return jsonify({"error": "No files provided"}), 400
-        
-        results = []
-        for i, file in enumerate(files[:10]):  # Limit to 10 files
-            if file.filename == "":
-                continue
-                
-            try:
-                content_type = file.content_type
-                if content_type.startswith("image/"):
-                    result = predict_image(file.read(), use_tta=False)  # Disable TTA for batch
-                    result["filename"] = file.filename
-                    result["index"] = i
-                    results.append(result)
-            except Exception as e:
-                results.append({
-                    "filename": file.filename,
-                    "index": i,
-                    "error": str(e),
-                    "label": "error"
-                })
-        
+        info = get_model_info()
         return jsonify({
-            "results": results,
-            "total_processed": len(results),
-            "model_loaded": MODEL_LOADED
+            "model_info": info,
+            "model_loaded": MODEL_LOADED,
+            "api_version": "2.0.0"
         })
-        
     except Exception as e:
-        logger.error(f"Batch analysis error: {e}")
         return jsonify({
-            "error": f"Batch analysis failed: {str(e)}",
+            "error": f"Failed to get model info: {str(e)}",
             "model_loaded": MODEL_LOADED
         }), 500
+
 if __name__ == "__main__":
     print("="*50)
     print("🚀 DeepDetect Flask Server Starting...")
@@ -228,20 +199,3 @@ if __name__ == "__main__":
     print(f"Server will run on: http://localhost:5000")
     print("="*50)
     app.run(host="0.0.0.0", port=5000, debug=True)
-
-# Model information endpoint
-@app.route("/model_info", methods=["GET"])
-def model_info():
-    """Get detailed model information"""
-    try:
-        info = get_model_info()
-        return jsonify({
-            "model_info": info,
-            "model_loaded": MODEL_LOADED,
-            "api_version": "2.0.0"
-        })
-    except Exception as e:
-        return jsonify({
-            "error": f"Failed to get model info: {str(e)}",
-            "model_loaded": MODEL_LOADED
-        }), 500

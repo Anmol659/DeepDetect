@@ -119,7 +119,7 @@ class DeepDetectContent {
     }
 
     async analyzeImage(imgElement) {
-        if (this.isScanning) return;
+        if (!imgElement || !imgElement.src) return;
         
         try {
             // Show loading indicator
@@ -130,13 +130,19 @@ class DeepDetectContent {
             
             try {
                 // Try to fetch the image with proper headers
-                const response = await fetch(imgElement.src, {
-                    mode: 'cors',
-                    credentials: 'omit',
-                    headers: {
-                        'Accept': 'image/*'
-                    }
-                });
+                let response;
+                try {
+                    response = await fetch(imgElement.src, {
+                        mode: 'cors',
+                        credentials: 'omit',
+                        headers: {
+                            'Accept': 'image/*'
+                        }
+                    });
+                } catch (fetchError) {
+                    // If CORS fails, try without CORS
+                    response = await fetch(imgElement.src);
+                }
                 
                 if (!response.ok) {
                     throw new Error(`Failed to fetch image: ${response.status}`);
@@ -144,52 +150,15 @@ class DeepDetectContent {
                 
                 blob = await response.blob();
                 
-                // If blob doesn't have proper MIME type, try to detect it
-                if (!blob.type || blob.type === 'application/octet-stream') {
-                    // Convert image element to canvas and then to blob with proper MIME type
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    
-                    canvas.width = imgElement.naturalWidth;
-                    canvas.height = imgElement.naturalHeight;
-                    
-                    // Draw image to canvas
-                    ctx.drawImage(imgElement, 0, 0);
-                    
-                    // Convert canvas to blob with proper MIME type
-                    blob = await new Promise(resolve => {
-                        canvas.toBlob(resolve, 'image/jpeg', 0.9);
-                    });
+                // Ensure we have a valid blob with proper MIME type
+                if (!blob.type || blob.type === 'application/octet-stream' || blob.type === 'binary/octet-stream') {
+                    console.log('Converting blob to proper image format...');
+                    blob = await this.convertToImageBlob(imgElement);
                 }
+                
             } catch (fetchError) {
                 console.warn('Direct fetch failed, trying canvas conversion:', fetchError);
-                
-                // Fallback: Convert image to canvas and then to blob
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                
-                // Handle CORS issues by creating a new image
-                const img = new Image();
-                img.crossOrigin = 'anonymous';
-                
-                blob = await new Promise((resolve, reject) => {
-                    img.onload = () => {
-                        canvas.width = img.naturalWidth;
-                        canvas.height = img.naturalHeight;
-                        ctx.drawImage(img, 0, 0);
-                        
-                        canvas.toBlob((blob) => {
-                            if (blob) {
-                                resolve(blob);
-                            } else {
-                                reject(new Error('Failed to convert image to blob'));
-                            }
-                        }, 'image/jpeg', 0.9);
-                    };
-                    
-                    img.onerror = () => reject(new Error('Failed to load image for conversion'));
-                    img.src = imgElement.src;
-                });
+                blob = await this.convertToImageBlob(imgElement);
             }
             
             // Check if blob is valid
@@ -199,16 +168,9 @@ class DeepDetectContent {
             
             console.log(`Analyzing image: ${imgElement.src}, blob type: ${blob.type}, size: ${blob.size}`);
             
-            // Create form data
+            // Create form data with proper filename
             const formData = new FormData();
-            
-            // Use proper filename based on blob type
-            let filename = 'image.jpg';
-            if (blob.type === 'image/png') filename = 'image.png';
-            else if (blob.type === 'image/webp') filename = 'image.webp';
-            else if (blob.type === 'image/gif') filename = 'image.gif';
-            
-            formData.append('file', blob, filename);
+            formData.append('file', blob, 'image.jpg');
             
             // Send to backend
             const analysisResponse = await fetch(`${this.serverUrl}/analyze`, {
@@ -251,6 +213,51 @@ class DeepDetectContent {
                 this.removeImageOverlay(imgElement);
             }, 3000);
         }
+    }
+    
+    async convertToImageBlob(imgElement) {
+        return new Promise((resolve, reject) => {
+            try {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                
+                // Set canvas size to image size
+                canvas.width = imgElement.naturalWidth || imgElement.width || 300;
+                canvas.height = imgElement.naturalHeight || imgElement.height || 300;
+                
+                // Create a new image to handle CORS
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+                
+                img.onload = () => {
+                    try {
+                        // Draw image to canvas
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        
+                        // Convert to blob with proper MIME type
+                        canvas.toBlob((blob) => {
+                            if (blob && blob.size > 0) {
+                                resolve(blob);
+                            } else {
+                                reject(new Error('Failed to create image blob'));
+                            }
+                        }, 'image/jpeg', 0.9);
+                    } catch (canvasError) {
+                        reject(new Error(`Canvas conversion failed: ${canvasError.message}`));
+                    }
+                };
+                
+                img.onerror = () => {
+                    reject(new Error('Failed to load image for canvas conversion'));
+                };
+                
+                // Try to load the image
+                img.src = imgElement.src;
+                
+            } catch (error) {
+                reject(new Error(`Image conversion setup failed: ${error.message}`));
+            }
+        });
     }
 
     handleAnalysisResult(imgElement, result) {
