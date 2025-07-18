@@ -6,8 +6,8 @@ import logging
 
 # Import with error handling
 try:
-    from inference import predict_image, predict_video, get_model_info
-    MODEL_LOADED = True
+    from inference import predict_image, predict_video, get_model_info, model
+    MODEL_LOADED = model is not None
     logging.info("✓ Enhanced inference module loaded successfully")
 except Exception as e:
     logging.error(f"Could not load inference module: {e}")
@@ -41,7 +41,7 @@ except Exception as e:
             "model_type": "dummy",
             "device": "cpu",
             "classes": ["ai_generated", "deepfake", "real"],
-            "supports_tta": False,
+            "model_loaded": False,
             "supports_video": False
         }
 
@@ -98,63 +98,39 @@ def analyze():
         if file.filename == "":
             return jsonify({"error": "No file selected"}), 400
 
-        # Get content type, with fallback detection
-        content_type = file.content_type or 'application/octet-stream'
-        logger.info(f"Analyzing file: {file.filename} (type: {content_type})")
-
-        # Read file data first to check if it's valid
+        # Read file data
         file_data = file.read()
         if len(file_data) == 0:
             return jsonify({"error": "Empty file"}), 400
         
-        # Reset file pointer for potential re-reading
-        file.seek(0)
-        
-        # Detect actual file type from file data if content_type is generic
-        if content_type in ['binary/octet-stream', 'application/octet-stream']:
-            # Try to detect image type from file signature
-            if file_data.startswith(b'\xff\xd8\xff'):
-                content_type = 'image/jpeg'
-            elif file_data.startswith(b'\x89PNG\r\n\x1a\n'):
-                content_type = 'image/png'
-            elif file_data.startswith(b'GIF8'):
-                content_type = 'image/gif'
-            elif file_data.startswith(b'RIFF') and b'WEBP' in file_data[:12]:
-                content_type = 'image/webp'
-            elif file_data.startswith(b'\x00\x00\x00\x20ftypavif'):
-                content_type = 'image/avif'
-            else:
-                # Try to open with PIL to verify it's an image
-                try:
-                    from PIL import Image
-                    from io import BytesIO
-                    Image.open(BytesIO(file_data)).verify()
-                    content_type = 'image/unknown'  # Valid image but unknown format
-                except Exception:
-                    return jsonify({
-                        "error": "Invalid file format",
-                        "details": "File does not appear to be a valid image"
-                    }), 400
-        
-        logger.info(f"Detected content type: {content_type}")
-        # Accept images with any content type that we've verified
-        if content_type.startswith("image/") or content_type == 'image/unknown':
-            # Enhanced image analysis
-            result = predict_image(file_data, use_tta=MODEL_LOADED)
+        # Simple content type detection
+        content_type = file.content_type or 'application/octet-stream'
+        logger.info(f"Analyzing file: {file.filename} (type: {content_type})")
+
+        # Try to analyze as image first
+        try:
+            from PIL import Image
+            from io import BytesIO
+            # Verify it's a valid image
+            Image.open(BytesIO(file_data)).verify()
+            # Analyze image
+            result = predict_image(file_data)
             
         elif content_type.startswith("video/") and MODEL_LOADED:
-            # Enhanced video analysis
+            # Video analysis
             with tempfile.NamedTemporaryFile(delete=False, suffix=".mp4") as tmp:
-                file.save(tmp.name)
-                result = predict_video(tmp.name, max_frames=10)
+                tmp.write(file_data)
+                tmp.flush()
+                result = predict_video(tmp.name)
         else:
-            supported_types = "images (JPG, PNG, WebP)"
-            if MODEL_LOADED:
-                supported_types += " and videos (MP4, AVI, MOV)"
             return jsonify({
-                "error": f"Unsupported file type: {content_type}",
-                "supported_types": supported_types,
-                "details": "Please ensure you're uploading a valid image file"
+                "error": "Unsupported file type",
+                "details": f"File type {content_type} is not supported. Please upload an image file."
+            }), 400
+        except Exception as image_error:
+            return jsonify({
+                "error": "Invalid image file",
+                "details": f"Could not process image: {str(image_error)}"
             }), 400
 
         if not result or "label" not in result or "class_probs" not in result:
@@ -163,7 +139,7 @@ def analyze():
                 "details": "The model could not process this file"
             }), 500
 
-        # Enhanced response with additional metadata
+        # Return results
         return jsonify({
             "label": result["label"],
             "confidence": result["confidence"],
@@ -172,13 +148,7 @@ def analyze():
             "probabilities": result.get("probabilities", result["class_probs"]),
             "description": result.get("description", result["label"]),
             "model_loaded": MODEL_LOADED,
-            "model_type": result.get("model_type", "unknown"),
-            "analysis_metadata": {
-                "used_tta": result.get("used_tta", False),
-                "frames_analyzed": result.get("frames_analyzed"),
-                "temporal_consistency": result.get("temporal_consistency"),
-                "video_analysis": result.get("video_analysis", False)
-            }
+            "model_type": result.get("model_type", "unknown")
         })
         
     except Exception as e:
@@ -238,31 +208,24 @@ def analyze_batch():
         }), 500
 if __name__ == "__main__":
     print("="*50)
-    print("🚀 DeepDetect Enhanced Flask Server Starting...")
+    print("🚀 DeepDetect Flask Server Starting...")
     print("="*50)
     if MODEL_LOADED:
         try:
             model_info = get_model_info()
-            print(f"✓ Enhanced model loaded successfully")
+            print(f"✓ Model loaded successfully")
             print(f"  Model type: {model_info['model_type']}")
             print(f"  Device: {model_info['device']}")
             print(f"  Classes: {', '.join(model_info['classes'])}")
-            print(f"  TTA Support: {model_info.get('supports_tta', False)}")
             print(f"  Video Support: {model_info.get('supports_video', False)}")
         except:
-            print("✓ Basic model loaded")
+            print("✓ Model loaded")
     else:
         print("⚠ Model not loaded - using fallback mode")
         print("  To get full functionality:")
         print("  1. Train the model using scripts in backend/Model_A/")
         print("  2. Or place trained model in checkpoints/ directory")
     print(f"Server will run on: http://localhost:5000")
-    print("Features:")
-    print("  • Enhanced UI with smooth animations")
-    print("  • Improved deepfake detection accuracy")
-    print("  • Test-time augmentation for better results")
-    print("  • Video analysis with temporal consistency")
-    print("  • Batch processing support")
     print("="*50)
     app.run(host="0.0.0.0", port=5000, debug=True)
 
