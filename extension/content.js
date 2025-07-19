@@ -121,28 +121,32 @@ class DeepDetectContent {
     async analyzeImage(imgElement) {
         if (!imgElement || !imgElement.src) return;
         
+        // Skip if already processed recently
+        const imageId = imgElement.src + imgElement.naturalWidth + imgElement.naturalHeight;
+        if (this.processedImages.has(imageId)) {
+            console.log('Image already processed, skipping:', imgElement.src);
+            return;
+        }
+        
         try {
             // Show loading indicator
             this.showImageOverlay(imgElement, 'loading', 'Analyzing...');
             
-            // Better image to blob conversion with proper MIME type detection
+            // Enhanced image to blob conversion with better error handling
             let blob;
             
             try {
-                // Try to fetch the image with proper headers
-                let response;
-                try {
-                    response = await fetch(imgElement.src, {
-                        mode: 'cors',
-                        credentials: 'omit',
-                        headers: {
-                            'Accept': 'image/*'
-                        }
-                    });
-                } catch (fetchError) {
-                    // If CORS fails, try without CORS
-                    response = await fetch(imgElement.src);
-                }
+                // First try direct fetch with better headers
+                const response = await fetch(imgElement.src, {
+                    method: 'GET',
+                    mode: 'cors',
+                    credentials: 'omit',
+                    headers: {
+                        'Accept': 'image/jpeg, image/png, image/webp, image/gif, image/*',
+                        'Cache-Control': 'no-cache'
+                    },
+                    signal: AbortSignal.timeout(10000) // 10 second timeout
+                });
                 
                 if (!response.ok) {
                     throw new Error(`Failed to fetch image: ${response.status}`);
@@ -151,7 +155,7 @@ class DeepDetectContent {
                 blob = await response.blob();
                 
                 // Ensure we have a valid blob with proper MIME type
-                if (!blob.type || blob.type === 'application/octet-stream' || blob.type === 'binary/octet-stream') {
+                if (!blob.type || !blob.type.startsWith('image/') || blob.type === 'application/octet-stream') {
                     console.log('Converting blob to proper image format...');
                     blob = await this.convertToImageBlob(imgElement);
                 }
@@ -168,6 +172,9 @@ class DeepDetectContent {
             
             console.log(`Analyzing image: ${imgElement.src}, blob type: ${blob.type}, size: ${blob.size}`);
             
+            // Mark as processed
+            this.processedImages.add(imageId);
+            
             // Create form data with proper filename
             const formData = new FormData();
             formData.append('file', blob, 'image.jpg');
@@ -176,7 +183,7 @@ class DeepDetectContent {
             const analysisResponse = await fetch(`${this.serverUrl}/analyze`, {
                 method: 'POST',
                 body: formData,
-                signal: AbortSignal.timeout(15000) // 15 second timeout
+                signal: AbortSignal.timeout(20000) // 20 second timeout
             });
             
             if (!analysisResponse.ok) {
@@ -195,6 +202,10 @@ class DeepDetectContent {
             
         } catch (error) {
             console.error('Image analysis error:', error);
+            
+            // Remove from processed set on error so it can be retried
+            const imageId = imgElement.src + imgElement.naturalWidth + imgElement.naturalHeight;
+            this.processedImages.delete(imageId);
             
             // Show more user-friendly error messages
             let errorMessage = 'Analysis failed';
@@ -216,6 +227,7 @@ class DeepDetectContent {
     }
     
     async convertToImageBlob(imgElement) {
+        console.log('Converting image to blob via canvas...');
         return new Promise((resolve, reject) => {
             try {
                 const canvas = document.createElement('canvas');
@@ -225,7 +237,7 @@ class DeepDetectContent {
                 canvas.width = imgElement.naturalWidth || imgElement.width || 300;
                 canvas.height = imgElement.naturalHeight || imgElement.height || 300;
                 
-                // Create a new image to handle CORS
+                // Create a new image element for canvas conversion
                 const img = new Image();
                 img.crossOrigin = 'anonymous';
                 
@@ -248,7 +260,7 @@ class DeepDetectContent {
                 };
                 
                 img.onerror = () => {
-                    reject(new Error('Failed to load image for canvas conversion'));
+                    reject(new Error('Canvas conversion failed - image load error'));
                 };
                 
                 // Try to load the image
@@ -280,7 +292,7 @@ class DeepDetectContent {
         // Store result for popup access
         imgElement.dataset.deepdetectResult = JSON.stringify(result);
         
-        // Notify background script about scan results
+        // Update badge with results
         chrome.runtime.sendMessage({
             action: 'updateBadge',
             suspicious: isSuspicious ? 1 : 0,
@@ -492,7 +504,7 @@ class DeepDetectContent {
         
         try {
             // Clear previous results
-            this.processedImages.clear();
+            this.processedImages = new Set(); // Reset processed images
             
             // Find all images on the page
             const images = Array.from(document.querySelectorAll('img'))
@@ -516,6 +528,7 @@ class DeepDetectContent {
             let analyzed = 0;
             let suspicious = 0;
             
+            console.log(`Starting batch analysis of ${images.length} images...`);
             // Analyze images with controlled concurrency
             const batchSize = 3; // Process 3 images at a time
             for (let i = 0; i < images.length; i += batchSize) {
@@ -543,7 +556,7 @@ class DeepDetectContent {
                 
                 // Small delay between batches
                 if (i + batchSize < images.length) {
-                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    await new Promise(resolve => setTimeout(resolve, 2000)); // Increased delay
                 }
             }
             
@@ -563,6 +576,7 @@ class DeepDetectContent {
         } finally {
             this.isScanning = false;
         }
+        
         const images = Array.from(document.querySelectorAll('img'))
             .filter(img => {
                 return img.naturalWidth > 100 && 
@@ -571,6 +585,7 @@ class DeepDetectContent {
                        !img.src.startsWith('data:') &&
                        img.complete;
             });
+        return images;
     }
 
     handleMessage(request, sender, sendResponse) {

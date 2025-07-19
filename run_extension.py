@@ -25,23 +25,39 @@ def check_requirements():
         print("Please install requirements: pip install -r requirements.txt")
         return False
 
-def check_model_files():
-    """Check if model checkpoint exists"""
-    checkpoint_path = Path("checkpoints/best_model_3way.pth")
-    if not checkpoint_path.exists():
-        print(f"⚠ Model checkpoint not found: {checkpoint_path}")
-        print("The server will run in fallback mode with limited accuracy.")
-        print("For full functionality, please:")
-        print("  1. Train the model using the training scripts in backend/Model_A/")
-        print("  2. Copy the resulting 'best_model_3way.pth' to the checkpoints/ directory")
-        print("  3. Or download a pre-trained model if available")
-        return False
-    print("✓ Model checkpoint found")
-    return True
+def check_your_trained_model():
+    """Check if YOUR trained model checkpoint exists"""
+    possible_paths = [
+        Path("checkpoints/best_model_3way.pth"),
+        Path("backend/checkpoints/best_model_3way.pth"),
+        Path("best_model_3way.pth")
+    ]
+    
+    for checkpoint_path in possible_paths:
+        if checkpoint_path.exists():
+            print(f"✓ YOUR trained model found: {checkpoint_path}")
+            return True, checkpoint_path
+    
+    print("❌ YOUR trained model checkpoint not found!")
+    print("Searched in:")
+    for path in possible_paths:
+        print(f"  - {path}")
+    print("\nTo fix this:")
+    print("1. Train your model using: cd backend/Model_A && python MDA_2.py")
+    print("2. Or copy your existing best_model_3way.pth to the checkpoints/ directory")
+    print("3. Or place it in the project root directory")
+    return False, None
+
+def create_checkpoints_dir():
+    """Create checkpoints directory if it doesn't exist"""
+    checkpoints_dir = Path("checkpoints")
+    if not checkpoints_dir.exists():
+        checkpoints_dir.mkdir(parents=True, exist_ok=True)
+        print(f"✓ Created checkpoints directory: {checkpoints_dir}")
 
 def start_flask_server():
     """Start the Flask backend server"""
-    print("Starting DeepDetect Flask server...")
+    print("Starting DeepDetect Flask server with YOUR trained model...")
     
     # Change to backend directory
     backend_dir = Path("backend")
@@ -85,22 +101,40 @@ def main():
     # Check if we're in the right directory
     if not Path("backend/app.py").exists():
         print("✗ Please run this script from the project root directory")
+        print("Current directory:", os.getcwd())
         sys.exit(1)
     
     # Check requirements
     if not check_requirements():
         sys.exit(1)
     
-    # Check model files
-    model_available = check_model_files()
-    if not model_available:
-        print("\n⚠ Continuing without trained model (fallback mode)")
+    # Create checkpoints directory
+    create_checkpoints_dir()
+    
+    # Check for YOUR trained model
+    model_found, model_path = check_your_trained_model()
+    if not model_found:
+        print("\n❌ Cannot start without YOUR trained model!")
+        print("\nOptions:")
+        print("1. Train the model: cd backend/Model_A && python MDA_2.py")
+        print("2. Copy your existing model file to checkpoints/best_model_3way.pth")
+        
+        choice = input("\nDo you want to continue anyway? (y/n): ").lower().strip()
+        if choice != 'y':
+            print("Exiting. Please add your trained model and try again.")
+            sys.exit(1)
+    else:
+        print(f"✓ Using YOUR trained model from: {model_path}")
     
     # Print extension setup instructions
     print_extension_instructions()
     
-    # Start the server automatically
-    start_flask_server()
+    # Ask user if they want to start the server
+    start_server = input("\nStart the Flask server now? (y/n): ").lower().strip()
+    if start_server == 'y':
+        start_flask_server()
+    else:
+        print("You can start the server later by running: python backend/app.py")
 
 if __name__ == "__main__":
     main()
