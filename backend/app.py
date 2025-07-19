@@ -10,7 +10,10 @@ from io import BytesIO
 try:
     from inference import predict_image, predict_video, get_model_info, model
     MODEL_LOADED = model is not None
-    logging.info("✓ Inference module loaded successfully")
+    if MODEL_LOADED:
+        logging.info("✓ Inference module loaded successfully with trained model")
+    else:
+        logging.warning("⚠ Inference module loaded but no trained model available")
 except Exception as e:
     logging.error(f"Could not load inference module: {e}")
     MODEL_LOADED = False
@@ -60,7 +63,7 @@ def health_check():
     try:
         model_info = get_model_info()
         status = "healthy" if MODEL_LOADED else "limited"
-        message = "DeepDetect API is running" if MODEL_LOADED else "API running with limited functionality (model not loaded)"
+        message = "DeepDetect API is running with trained model" if MODEL_LOADED else "API running but trained model not loaded"
         
         return jsonify({
             "status": status, 

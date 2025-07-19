@@ -1,0 +1,250 @@
+@@ .. @@
+-# Enhanced model training script with attention mechanisms and TTA
+-import os
+-import time
+-from PIL import Image
+-
+-import torch
+-import torch.nn as nn
+-import torch.optim as optim
+-from torchvision import transforms, models, datasets
+-from torch.utils.data import DataLoader
+-from tqdm import tqdm
+-import torch.nn.functional as F
+-
+-# ===========================================
+-# ENHANCED MODEL WITH ATTENTION
+-# ===========================================
+-class AttentionBlock(nn.Module):
+-    def __init__(self, in_channels, out_channels):
+-        super(AttentionBlock, self).__init__()
+-        self.attention = nn.Sequential(
+-            nn.Conv2d(in_channels, out_channels // 8, 1),
+-            nn.BatchNorm2d(out_channels // 8),
+-            nn.ReLU(inplace=True),
+-            nn.Conv2d(out_channels // 8, out_channels, 1),
+-            nn.Sigmoid()
+-        )
+-        
+-    def forward(self, x):
+-        attention_weights = self.attention(x)
+-        return x * attention_weights
+-
+-class EnhancedEfficientNet(nn.Module):
+-    def __init__(self, num_classes=3):
+-        super(EnhancedEfficientNet, self).__init__()
+-        # Load EfficientNet-B4 backbone
+-        self.backbone = models.efficientnet_b4(weights=models.EfficientNet_B4_Weights.IMAGENET1K_V1)
+-        
+-        # Remove the original classifier
+-        self.features = self.backbone.features
+-        self.avgpool = self.backbone.avgpool
+-        
+-        # Add attention mechanism
+-        self.attention = AttentionBlock(1792, 1792)  # EfficientNet-B4 output channels
+-        
+-        # Enhanced classifier with dropout and batch norm
+-        self.classifier = nn.Sequential(
+-            nn.Dropout(0.4),
+-            nn.Linear(1792, 512),
+-            nn.BatchNorm1d(512),
+-            nn.ReLU(inplace=True),
+-            nn.Dropout(0.3),
+-            nn.Linear(512, 128),
+-            nn.BatchNorm1d(128),
+-            nn.ReLU(inplace=True),
+-            nn.Dropout(0.2),
+-            nn.Linear(128, num_classes)
+-        )
+-        
+-    def forward(self, x):
+-        x = self.features(x)
+-        x = self.attention(x)  # Apply attention
+-        x = self.avgpool(x)
+-        x = torch.flatten(x, 1)
+-        x = self.classifier(x)
+-        return x
+-
+-# Focal Loss for better handling of imbalanced data
+-class FocalLoss(nn.Module):
+-    def __init__(self, alpha=1, gamma=2, reduction='mean'):
+-        super(FocalLoss, self).__init__()
+-        self.alpha = alpha
+-        self.gamma = gamma
+-        self.reduction = reduction
+-        
+-    def forward(self, inputs, targets):
+-        ce_loss = F.cross_entropy(inputs, targets, reduction='none')
+-        pt = torch.exp(-ce_loss)
+-        focal_loss = self.alpha * (1-pt)**self.gamma * ce_loss
+-        
+-        if self.reduction == 'mean':
+-            return focal_loss.mean()
+-        elif self.reduction == 'sum':
+-            return focal_loss.sum()
+-        else:
+-            return focal_loss
+-
+-# ===========================================
+-# CONFIGURATION
+-# ===========================================
+-train_dir = r"C:/Users/anmol/OneDrive/Desktop/Hackathon/DeepDetect/Datasets/train"
+-val_dir = r"C:/Users/anmol/OneDrive/Desktop/Hackathon/DeepDetect/Datasets/Val"
+-checkpoint_dir = r"C:/Users/anmol/OneDrive/Desktop/DeepDetect/checkpoints"
+-
+-os.makedirs(checkpoint_dir, exist_ok=True)
+-
+-# Training settings
+-batch_size = 12  # Reduced for enhanced model
+-num_epochs = 8
+-learning_rate = 5e-5  # Lower learning rate for fine-tuning
+-num_workers = 4
+-
+-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+-
+-if __name__ == "__main__":
+-    # Enhanced data augmentation
+-    train_transform = transforms.Compose([
+-        transforms.RandomResizedCrop(380, scale=(0.6, 1.0)),
+-        transforms.RandomHorizontalFlip(p=0.5),
+-        transforms.RandomVerticalFlip(p=0.1),
+-        transforms.RandomRotation(15),
+-        transforms.ColorJitter(brightness=0.4, contrast=0.4, saturation=0.4, hue=0.1),
+-        transforms.RandomPerspective(distortion_scale=0.2, p=0.3),
+-        transforms.RandomGrayscale(p=0.1),
+-        transforms.RandomApply([transforms.GaussianBlur(3, sigma=(0.1, 2.0))], p=0.2),
+-        transforms.ToTensor(),
+-        transforms.Normalize([0.485,0.456,0.406],[0.229,0.224,0.225]),
+-        transforms.RandomErasing(p=0.1, scale=(0.02, 0.33), ratio=(0.3, 3.3))
+-    ])
+-
+-    val_transform = transforms.Compose([
+-        transforms.Resize((380,380)),
+-        transforms.ToTensor(),
+-        transforms.Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])
+-    ])
+-
+-    train_dataset = datasets.ImageFolder(train_dir, transform=train_transform)
+-    val_dataset = datasets.ImageFolder(val_dir, transform=val_transform)
+-
+-    train_loader = DataLoader(
+-        train_dataset,
+-        batch_size=batch_size,
+-        shuffle=True,
+-        num_workers=num_workers,
+-        pin_memory=True
+-    )
+-
+-    val_loader = DataLoader(
+-        val_dataset,
+-        batch_size=batch_size,
+-        shuffle=False,
+-        num_workers=num_workers,
+-        pin_memory=True
+-    )
+-
+-    print("Class to index mapping:", train_dataset.class_to_idx)
+-    print(f"Training samples: {len(train_dataset)}")
+-    print(f"Validation samples: {len(val_dataset)}")
+-
+-    # Enhanced model
+-    model = EnhancedEfficientNet(num_classes=3)
+-    model = model.to(device)
+-
+-    # Focal loss for better performance
+-    criterion = FocalLoss(alpha=1, gamma=2)
+-    
+-    # AdamW optimizer with weight decay
+-    optimizer = optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=1e-4)
+-    
+-    # Cosine annealing scheduler
+-    scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=num_epochs)
+-
+-    best_val_acc = 0.0
+-    patience = 3
+-    patience_counter = 0
+-
+-    for epoch in range(num_epochs):
+-        epoch_start = time.time()
+-        model.train()
+-        running_loss = 0.0
+-        correct = 0
+-        total = 0
+-
+-        train_pbar = tqdm(train_loader, desc=f"Epoch {epoch+1}/{num_epochs} [Training]", leave=False)
+-
+-        for images, labels in train_pbar:
+-            images, labels = images.to(device, non_blocking=True), labels.to(device, non_blocking=True)
+-
+-            optimizer.zero_grad()
+-            outputs = model(images)
+-            loss = criterion(outputs, labels)
+-            loss.backward()
+-            
+-            # Gradient clipping
+-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+-            
+-            optimizer.step()
+-
+-            running_loss += loss.item()
+-            _, preds = torch.max(outputs, 1)
+-            correct += (preds == labels).sum().item()
+-            total += labels.size(0)
+-
+-            train_pbar.set_postfix({
+-                "Loss": f"{running_loss / (total//batch_size + 1):.4f}",
+-                "Acc": f"{100 * correct / total:.2f}%"
+-            })
+-
+-        train_acc = 100 * correct / total
+-
+-        # Validation
+-        model.eval()
+-        val_correct = 0
+-        val_total = 0
+-        val_loss = 0.0
+-
+-        val_pbar = tqdm(val_loader, desc=f"Epoch {epoch+1}/{num_epochs} [Validation]", leave=False)
+-
+-        with torch.no_grad():
+-            for images, labels in val_pbar:
+-                images, labels = images.to(device, non_blocking=True), labels.to(device, non_blocking=True)
+-                outputs = model(images)
+-                loss = criterion(outputs, labels)
+-                val_loss += loss.item()
+-                _, preds = torch.max(outputs, 1)
+-                val_correct += (preds == labels).sum().item()
+-                val_total += labels.size(0)
+-
+-        val_acc = 100 * val_correct / val_total
+-        epoch_time = time.time() - epoch_start
+-        
+-        # Update learning rate
+-        scheduler.step()
+-        current_lr = optimizer.param_groups[0]['lr']
+-
+-        print(f"\nEpoch {epoch+1}/{num_epochs} Completed")
+-        print(f"Train Loss: {running_loss/len(train_loader):.4f} | Train Acc: {train_acc:.2f}%")
+-        print(f"Val Loss: {val_loss/len(val_loader):.4f} | Val Acc: {val_acc:.2f}%")
+-        print(f"Learning Rate: {current_lr:.6f} | Time: {epoch_time/60:.2f} min")
+-
+-        # Save best model
+-        if val_acc > best_val_acc:
+-            best_val_acc = val_acc
+-            torch.save(model.state_dict(), os.path.join(checkpoint_dir, "best_model_3way_enhanced.pth"))
+-            print(f"✓ New best model saved! Val Acc: {val_acc:.2f}%")
+-            patience_counter = 0
+-        else:
+-            patience_counter += 1
+-            if patience_counter >= patience:
+-                print("Early stopping triggered!")
+-                break
+-
+-        # Always save last epoch
+-        torch.save(model.state_dict(), os.path.join(checkpoint_dir, "last_model_3way_enhanced.pth"))
+-
+-    print(f"\nTraining complete! Best validation accuracy: {best_val_acc:.2f}%")
++# This file has been removed to avoid conflicts with your trained model
++# Use your existing training script: python backend/Model_A/MDA_2.py
++print("Please use your existing training script: python backend/Model_A/MDA_2.py")
++print("This will train the standard EfficientNet-B4 model that works with the inference system.")

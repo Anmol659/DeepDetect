@@ -27,17 +27,27 @@ def check_requirements():
 
 def check_model_files():
     """Check if model checkpoint exists"""
-    checkpoint_path = Path("checkpoints/best_model_3way.pth")
-    if not checkpoint_path.exists():
-        print(f"⚠ Model checkpoint not found: {checkpoint_path}")
-        print("The server will run in fallback mode with limited accuracy.")
-        print("For full functionality, please:")
-        print("  1. Train the model using the training scripts in backend/Model_A/")
-        print("  2. Copy the resulting 'best_model_3way.pth' to the checkpoints/ directory")
-        print("  3. Or download a pre-trained model if available")
-        return False
-    print("✓ Model checkpoint found")
-    return True
+    # Check multiple possible locations for the model
+    possible_paths = [
+        Path("checkpoints/best_model_3way.pth"),
+        Path("backend/checkpoints/best_model_3way.pth"),
+        Path("../checkpoints/best_model_3way.pth")
+    ]
+    
+    for checkpoint_path in possible_paths:
+        if checkpoint_path.exists():
+            print(f"✓ Model checkpoint found: {checkpoint_path}")
+            return True
+    
+    print("⚠ Model checkpoint not found in any of these locations:")
+    for path in possible_paths:
+        print(f"  - {path.absolute()}")
+    print("\nThe server will run but predictions will be inaccurate.")
+    print("To get accurate results:")
+    print("  1. Train your model using: python backend/Model_A/MDA_2.py")
+    print("  2. Ensure the trained model is saved as 'best_model_3way.pth'")
+    print("  3. Place it in the 'checkpoints/' directory")
+    return False
 
 def start_flask_server():
     """Start the Flask backend server"""
