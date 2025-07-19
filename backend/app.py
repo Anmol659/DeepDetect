@@ -109,18 +109,31 @@ def analyze():
 
         # Validate image using PIL
         try:
-            # Try to open and verify the image
-            image = Image.open(BytesIO(file_data))
-            image.verify()  # Verify it's a valid image
-            
-            # Re-open for processing (verify() closes the file)
-            image = Image.open(BytesIO(file_data))
-            
-            # Convert to RGB if needed
-            if image.mode != 'RGB':
-                image = image.convert('RGB')
-            
-            logger.info(f"Valid image: {image.size}, mode: {image.mode}")
+            # Enhanced image validation
+            try:
+                # Try to open and verify the image
+                image = Image.open(BytesIO(file_data))
+                image.verify()  # Verify it's a valid image
+                
+                # Re-open for processing (verify() closes the file)
+                image = Image.open(BytesIO(file_data))
+                
+                # Check file format
+                if image.format not in ['JPEG', 'PNG', 'WEBP', 'BMP', 'TIFF', 'GIF']:
+                    raise ValueError(f"Unsupported image format: {image.format}")
+                
+                # Check image size
+                if image.size[0] < 32 or image.size[1] < 32:
+                    raise ValueError("Image too small (minimum 32x32 pixels)")
+                
+                if image.size[0] > 4096 or image.size[1] > 4096:
+                    raise ValueError("Image too large (maximum 4096x4096 pixels)")
+                
+                logger.info(f"Valid image: {image.size}, format: {image.format}, mode: {image.mode}")
+                
+            except Exception as validation_error:
+                logger.error(f"Image validation failed: {validation_error}")
+                raise ValueError(f"Invalid image file: {str(validation_error)}")
             
             # Analyze image
             result = predict_image(file_data)
