@@ -112,37 +112,8 @@ def predict_image(image_bytes):
                 "error": "Trained model not available"
             }
             
-        # Load and preprocess image with better format handling
-        try:
-            # First, try to open the image
-            image = Image.open(BytesIO(image_bytes))
-            
-            # Handle different image formats
-            if image.format not in ['JPEG', 'PNG', 'WEBP', 'BMP', 'TIFF']:
-                logger.warning(f"Unsupported image format: {image.format}")
-            
-            # Convert to RGB (handles RGBA, grayscale, etc.)
-            if image.mode in ['RGBA', 'LA']:
-                # Create white background for transparent images
-                background = Image.new('RGB', image.size, (255, 255, 255))
-                if image.mode == 'RGBA':
-                    background.paste(image, mask=image.split()[-1])  # Use alpha channel as mask
-                else:
-                    background.paste(image, mask=image.split()[-1])
-                image = background
-            elif image.mode != 'RGB':
-                image = image.convert('RGB')
-                
-            # Validate image size
-            if image.size[0] < 32 or image.size[1] < 32:
-                raise ValueError("Image too small (minimum 32x32 pixels)")
-                
-            logger.info(f"Image processed: {image.size}, mode: {image.mode}")
-            
-        except Exception as img_error:
-            logger.error(f"Image processing error: {img_error}")
-            raise ValueError(f"Invalid image format or corrupted file: {str(img_error)}")
-        
+        # Load and preprocess image
+        image = Image.open(BytesIO(image_bytes)).convert("RGB")
         tensor = transform(image).unsqueeze(0).to(device)
         
         # Make prediction with your trained model
