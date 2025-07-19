@@ -30,7 +30,7 @@ class DeepDetectBackground {
         if (details.reason === 'install') {
             // Set default settings on first install
             chrome.storage.sync.set({
-                serverUrl: 'http://localhost:5000',
+                serverUrl: 'https://deepdetect-api.onrender.com',
                 autoScan: false,
                 showConfidence: true,
                 highlightSuspicious: true,
