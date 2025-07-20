@@ -1,5 +1,5 @@
-// Background service worker for DeepDetect extension
-class DeepDetectBackground {
+// Background service worker for DeepShield extension
+class DeepShieldBackground {
     constructor() {
         this.init();
     }
@@ -41,7 +41,7 @@ class DeepDetectBackground {
             chrome.notifications.create({
                 type: 'basic',
                 //iconUrl: 'icons/icon48.png',
-                title: 'DeepDetect Installed',
+                title: 'DeepShield Installed',
                 message: 'AI-powered media authentication is now active. Click the extension icon to get started.'
             });
         }
@@ -226,7 +226,7 @@ class DeepDetectBackground {
                 tabId
             });
             chrome.action.setTitle({
-                title: `DeepDetect: ${suspicious} suspicious image${suspicious > 1 ? 's' : ''} found`,
+                title: `DeepShield: ${suspicious} suspicious image${suspicious > 1 ? 's' : ''} found`,
                 tabId
             });
         } else if (total > 0) {
@@ -239,7 +239,7 @@ class DeepDetectBackground {
                 tabId
             });
             chrome.action.setTitle({
-                title: `DeepDetect: ${total} image${total > 1 ? 's' : ''} scanned, all authentic`,
+                title: `DeepShield: ${total} image${total > 1 ? 's' : ''} scanned, all authentic`,
                 tabId
             });
         } else {
@@ -248,7 +248,7 @@ class DeepDetectBackground {
                 tabId
             });
             chrome.action.setTitle({
-                title: 'DeepDetect: AI Media Authentication',
+                title: 'DeepShield: AI Media Authentication',
                 tabId
             });
         }
@@ -259,8 +259,8 @@ class DeepDetectBackground {
             await chrome.scripting.executeScript({
                 target: { tabId },
                 function: () => {
-                    if (window.deepDetectContent) {
-                        window.deepDetectContent.scanPageImages();
+                    if (window.deepShieldContent) {
+                        window.deepShieldContent.scanPageImages();
                     }
                 }
             });
@@ -271,4 +271,3 @@ class DeepDetectBackground {
 }
 
 // Initialize background script
-new DeepDetectBackground();

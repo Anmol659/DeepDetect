@@ -1,7 +1,7 @@
 // Content script for DeepDetect extension
 class DeepDetectContent {
     constructor() {
-        this.serverUrl = 'https://deepdetect-api.onrender.com';
+        this.serverUrl = 'https://your-app-name.onrender.com';
         this.settings = {};
         this.processedImages = new Set();
         this.overlays = new Map();
@@ -39,13 +39,13 @@ class DeepDetectContent {
         
         // Mark content script as loaded
         window.deepDetectLoaded = true;
-        window.deepDetectContent = this;
+        window.deepShieldContent = this;
     }
 
     async loadSettings() {
         try {
             const result = await chrome.storage.sync.get({
-                serverUrl: 'http://localhost:5000',
+                serverUrl: 'https://your-app-name.onrender.com',
                 autoScan: false,
                 showConfidence: true,
                 highlightSuspicious: true,
@@ -121,8 +121,8 @@ class DeepDetectContent {
     async analyzeImage(imgElement) {
         if (!imgElement || !imgElement.src) return;
         
-        // Skip if already processed recently
-        const imageId = imgElement.src + imgElement.naturalWidth + imgElement.naturalHeight;
+        // Create unique image ID
+        const imageId = `${imgElement.src}_${imgElement.naturalWidth}_${imgElement.naturalHeight}`;
         if (this.processedImages.has(imageId)) {
             console.log('Image already processed, skipping:', imgElement.src);
             return;
@@ -132,20 +132,29 @@ class DeepDetectContent {
             // Show loading indicator
             this.showImageOverlay(imgElement, 'loading', 'Analyzing...');
             
-            // Enhanced image to blob conversion with better error handling
+            // Mark as being processed
+            this.processedImages.add(imageId);
+            
+            // Get image as blob with better error handling
             let blob;
             
             try {
-                // First try direct fetch with better headers
+                // Try canvas conversion first for better compatibility
+                blob = await this.convertImageToBlob(imgElement);
+                
+                if (!blob || blob.size === 0) {
+                    throw new Error('Failed to convert image to blob');
+                }
+                
+            } catch (conversionError) {
+                console.warn('Canvas conversion failed, trying direct fetch:', conversionError);
+                
+                // Fallback to direct fetch
                 const response = await fetch(imgElement.src, {
                     method: 'GET',
                     mode: 'cors',
                     credentials: 'omit',
-                    headers: {
-                        'Accept': 'image/jpeg, image/png, image/webp, image/gif, image/*',
-                        'Cache-Control': 'no-cache'
-                    },
-                    signal: AbortSignal.timeout(10000) // 10 second timeout
+                    signal: AbortSignal.timeout(10000)
                 });
                 
                 if (!response.ok) {
@@ -153,16 +162,6 @@ class DeepDetectContent {
                 }
                 
                 blob = await response.blob();
-                
-                // Ensure we have a valid blob with proper MIME type
-                if (!blob.type || !blob.type.startsWith('image/') || blob.type === 'application/octet-stream') {
-                    console.log('Converting blob to proper image format...');
-                    blob = await this.convertToImageBlob(imgElement);
-                }
-                
-            } catch (fetchError) {
-                console.warn('Direct fetch failed, trying canvas conversion:', fetchError);
-                blob = await this.convertToImageBlob(imgElement);
             }
             
             // Check if blob is valid
@@ -170,20 +169,24 @@ class DeepDetectContent {
                 throw new Error('Empty image file');
             }
             
-            console.log(`Analyzing image: ${imgElement.src}, blob type: ${blob.type}, size: ${blob.size}`);
+            // Validate blob type
+            if (!blob.type.startsWith('image/')) {
+                // Force JPEG type for analysis
+                blob = new Blob([blob], { type: 'image/jpeg' });
+            }
             
-            // Mark as processed
-            this.processedImages.add(imageId);
+            console.log(`Analyzing image: ${imgElement.src}, blob type: ${blob.type}, size: ${blob.size}`);
             
             // Create form data with proper filename
             const formData = new FormData();
-            formData.append('file', blob, 'image.jpg');
+            const filename = blob.type.includes('png') ? 'image.png' : 'image.jpg';
+            formData.append('file', blob, filename);
             
             // Send to backend
             const analysisResponse = await fetch(`${this.serverUrl}/analyze`, {
                 method: 'POST',
                 body: formData,
-                signal: AbortSignal.timeout(20000) // 20 second timeout
+                signal: AbortSignal.timeout(30000) // 30 second timeout
             });
             
             if (!analysisResponse.ok) {
@@ -194,7 +197,7 @@ class DeepDetectContent {
             
             const result = await analysisResponse.json();
             
-            if (!result || !result.class_probs) {
+            if (!result || (!result.class_probs && !result.probabilities)) {
                 throw new Error('Invalid response from server');
             }
             
@@ -203,8 +206,8 @@ class DeepDetectContent {
         } catch (error) {
             console.error('Image analysis error:', error);
             
-            // Remove from processed set on error so it can be retried
-            const imageId = imgElement.src + imgElement.naturalWidth + imgElement.naturalHeight;
+            // Remove from processed set on error
+            const imageId = `${imgElement.src}_${imgElement.naturalWidth}_${imgElement.naturalHeight}`;
             this.processedImages.delete(imageId);
             
             // Show more user-friendly error messages
@@ -226,16 +229,27 @@ class DeepDetectContent {
         }
     }
     
-    async convertToImageBlob(imgElement) {
+    async convertImageToBlob(imgElement) {
         console.log('Converting image to blob via canvas...');
         return new Promise((resolve, reject) => {
             try {
                 const canvas = document.createElement('canvas');
                 const ctx = canvas.getContext('2d');
                 
-                // Set canvas size to image size
-                canvas.width = imgElement.naturalWidth || imgElement.width || 300;
-                canvas.height = imgElement.naturalHeight || imgElement.height || 300;
+                // Set reasonable canvas size
+                const maxSize = 1024;
+                let width = imgElement.naturalWidth || imgElement.width || 300;
+                let height = imgElement.naturalHeight || imgElement.height || 300;
+                
+                // Scale down if too large
+                if (width > maxSize || height > maxSize) {
+                    const ratio = Math.min(maxSize / width, maxSize / height);
+                    width = Math.floor(width * ratio);
+                    height = Math.floor(height * ratio);
+                }
+                
+                canvas.width = width;
+                canvas.height = height;
                 
                 // Create a new image element for canvas conversion
                 const img = new Image();
@@ -244,16 +258,17 @@ class DeepDetectContent {
                 img.onload = () => {
                     try {
                         // Draw image to canvas
-                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0, width, height);
                         
                         // Convert to blob with proper MIME type
                         canvas.toBlob((blob) => {
                             if (blob && blob.size > 0) {
+                                console.log(`Canvas conversion successful: ${blob.type}, ${blob.size} bytes`);
                                 resolve(blob);
                             } else {
                                 reject(new Error('Failed to create image blob'));
                             }
-                        }, 'image/jpeg', 0.9);
+                        }, 'image/jpeg', 0.8);
                     } catch (canvasError) {
                         reject(new Error(`Canvas conversion failed: ${canvasError.message}`));
                     }
@@ -266,6 +281,11 @@ class DeepDetectContent {
                 // Try to load the image
                 img.src = imgElement.src;
                 
+                // Add timeout for image loading
+                setTimeout(() => {
+                    reject(new Error('Image loading timeout'));
+                }, 10000);
+                
             } catch (error) {
                 reject(new Error(`Image conversion setup failed: ${error.message}`));
             }
@@ -273,7 +293,8 @@ class DeepDetectContent {
     }
 
     handleAnalysisResult(imgElement, result) {
-        const confidence = Math.round((result.class_probs?.real || result.probabilities?.real || 0) * 100);
+        const probabilities = result.class_probs || result.probabilities || {};
+        const confidence = Math.round((probabilities.real || 0) * 100);
         const isSuspicious = result.label !== 'real';
         
         if (isSuspicious && this.settings.highlightSuspicious) {
@@ -290,7 +311,7 @@ class DeepDetectContent {
         }
         
         // Store result for popup access
-        imgElement.dataset.deepdetectResult = JSON.stringify(result);
+        imgElement.dataset.deepshieldResult = JSON.stringify(result);
         
         // Update badge with results
         chrome.runtime.sendMessage({

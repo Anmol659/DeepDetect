@@ -60,7 +60,7 @@ def health_check():
     try:
         model_info = get_model_info()
         status = "healthy" if MODEL_LOADED else "limited"
-        message = "DeepDetect API is running" if MODEL_LOADED else "API running with limited functionality (model not loaded)"
+        message = "DeepShield API is running" if MODEL_LOADED else "API running with limited functionality (model not loaded)"
         
         return jsonify({
             "status": status, 
@@ -179,7 +179,7 @@ def model_info():
 
 if __name__ == "__main__":
     print("="*50)
-    print("🚀 DeepDetect Flask Server Starting...")
+    print("🚀 DeepShield Flask Server Starting...")
     print("="*50)
     if MODEL_LOADED:
         try:

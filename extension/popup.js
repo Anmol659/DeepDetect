@@ -1,7 +1,7 @@
 // Popup script for DeepDetect extension
 class DeepDetectPopup {
     constructor() {
-        this.serverUrl = 'http://localhost:5000';
+        this.serverUrl = 'https://your-app-name.onrender.com';
         this.isConnected = false;
         this.scanResults = [];
         this.currentFilter = 'all';
@@ -452,7 +452,7 @@ class DeepDetectPopup {
     async loadSettings() {
         try {
             const result = await chrome.storage.sync.get({
-                serverUrl: 'http://localhost:5000',
+                serverUrl: 'https://your-app-name.onrender.com',
                 autoScan: false,
                 showConfidence: true,
                 highlightSuspicious: true,
