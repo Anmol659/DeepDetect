@@ -10,7 +10,7 @@ from io import BytesIO
 try:
     from inference import predict_image, predict_video, get_model_info, model
     MODEL_LOADED = model is not None
-    logging.info("✓ Inference module loaded successfully")
+    logging.info(" Inference module loaded successfully")
 except Exception as e:
     logging.error(f"Could not load inference module: {e}")
     MODEL_LOADED = False
@@ -179,12 +179,12 @@ def model_info():
 
 if __name__ == "__main__":
     print("="*50)
-    print("🚀 DeepShield Flask Server Starting...")
+    print(" DeepShield Flask Server Starting...")
     print("="*50)
     if MODEL_LOADED:
         try:
             model_info = get_model_info()
-            print(f"✓ Model loaded successfully")
+            print(f" Model loaded successfully")
             print(f"  Model type: {model_info['model_type']}")
             print(f"  Device: {model_info['device']}")
             print(f"  Classes: {', '.join(model_info['classes'])}")
@@ -192,7 +192,7 @@ if __name__ == "__main__":
         except:
             print("✓ Model loaded")
     else:
-        print("⚠ Model not loaded - using fallback mode")
+        print(" Model not loaded - using fallback mode")
         print("  To get full functionality:")
         print("  1. Train the model using scripts in backend/Model_A/")
         print("  2. Or place trained model in checkpoints/ directory")
