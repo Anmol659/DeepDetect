@@ -30,7 +30,7 @@ class DeepShieldBackground {
         if (details.reason === 'install') {
             // Set default settings on first install
             chrome.storage.sync.set({
-                serverUrl: 'https://deepdetect-api.onrender.com',
+                serverUrl: ' https://deepdetect-api-nnp6.onrender.com',
                 autoScan: false,
                 showConfidence: true,
                 highlightSuspicious: true,

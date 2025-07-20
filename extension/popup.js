@@ -452,7 +452,7 @@ class DeepDetectPopup {
     async loadSettings() {
         try {
             const result = await chrome.storage.sync.get({
-                serverUrl: 'https://your-app-name.onrender.com',
+                serverUrl: ' https://deepdetect-api-nnp6.onrender.com',
                 autoScan: false,
                 showConfidence: true,
                 highlightSuspicious: true,
