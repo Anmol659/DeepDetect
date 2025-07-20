@@ -198,4 +198,4 @@ if __name__ == "__main__":
         print("  2. Or place trained model in checkpoints/ directory")
     print(f"Server will run on: http://localhost:5000")
     print("="*50)
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host='0.0.0.0', port=int(os.environ.get("PORT", 5000)))
