@@ -1,7 +1,7 @@
 // Content script for DeepDetect extension
 class DeepDetectContent {
     constructor() {
-        this.serverUrl = 'https://deepdetect-api-nnp6.onrender.com';
+        this.serverUrl = 'http://localhost:5000';
         this.settings = {};
         this.processedImages = new Set();
         this.overlays = new Map();
