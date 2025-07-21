@@ -1,7 +1,7 @@
 // Popup script for DeepDetect extension
 class DeepDetectPopup {
     constructor() {
-        this.serverUrl = 'https://your-app-name.onrender.com';
+        this.serverUrl = 'http://localhost:5000';
         this.isConnected = false;
         this.scanResults = [];
         this.currentFilter = 'all';
