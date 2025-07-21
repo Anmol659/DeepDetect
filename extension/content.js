@@ -619,14 +619,19 @@ class DeepDetectContent {
                 });
                 return true; // Keep message channel open for async response
                 
-            case 'analyzeSpecificImage':
-                this.analyzeSpecificImageFromData(request.imageData).then(result => {
-                    sendResponse({ success: true, result });
+            case 'convertImageToBlob':
+                this.convertImageUrlToBlob(request.imageUrl).then(blob => {
+                    sendResponse({ success: true, blob });
                 }).catch(error => {
-                    console.error('Image analysis error:', error);
+                    console.error('Image conversion error:', error);
                     sendResponse({ success: false, error: error.message });
                 });
                 return true;
+                
+            case 'updateImageResult':
+                this.updateImageWithResult(request.imageUrl, request.result);
+                sendResponse({ success: true });
+                break;
                 
             case 'getPageImages':
                 const images = Array.from(document.querySelectorAll('img'))
@@ -662,83 +667,40 @@ class DeepDetectContent {
         }
     }
 
-    async analyzeSpecificImageFromData(imageData) {
+    async convertImageUrlToBlob(imageUrl) {
         try {
-            console.log('Analyzing specific image:', imageData.src);
+            console.log('Converting image to blob:', imageUrl);
             
             // Find the actual image element on the page
-            const imgElement = document.querySelector(`img[src="${imageData.src}"]`);
+            const imgElement = document.querySelector(`img[src="${imageUrl}"]`);
             if (!imgElement) {
                 throw new Error('Image element not found on page');
             }
             
-            // Show loading indicator
-            this.showImageOverlay(imgElement, 'loading', 'Analyzing...');
-            
             // Convert image to blob
-            let blob;
-            try {
-                blob = await this.convertImageToBlob(imgElement);
-                if (!blob || blob.size === 0) {
-                    throw new Error('Failed to convert image to blob');
-                }
-            } catch (conversionError) {
-                console.warn('Canvas conversion failed, trying direct fetch:', conversionError);
-                const response = await fetch(imageData.src, {
-                    method: 'GET',
-                    mode: 'cors',
-                    credentials: 'omit',
-                    signal: AbortSignal.timeout(10000)
-                });
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch image: ${response.status}`);
-                }
-                blob = await response.blob();
+            const blob = await this.convertImageToBlob(imgElement);
+            if (!blob || blob.size === 0) {
+                throw new Error('Failed to convert image to blob');
             }
             
-            // Validate blob
-            if (blob.size === 0) {
-                throw new Error('Empty image file');
-            }
-            
-            // Force JPEG type for analysis if needed
-            if (!blob.type.startsWith('image/')) {
-                blob = new Blob([blob], { type: 'image/jpeg' });
-            }
-            
-            console.log(`Analyzing image: ${imageData.src}, blob type: ${blob.type}, size: ${blob.size}`);
-            
-            // Create form data
-            const formData = new FormData();
-            const filename = blob.type.includes('png') ? 'image.png' : 'image.jpg';
-            formData.append('file', blob, filename);
-            
-            // Send to backend
-            const analysisResponse = await fetch(`${this.serverUrl}/analyze`, {
-                method: 'POST',
-                body: formData,
-                signal: AbortSignal.timeout(30000)
+            // Convert blob to base64 data URL for transfer
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
             });
             
-            if (!analysisResponse.ok) {
-                const errorText = await analysisResponse.text();
-                throw new Error(`Analysis failed: ${analysisResponse.status} - ${errorText}`);
-            }
-            
-            const result = await analysisResponse.json();
-            
-            if (!result || (!result.class_probs && !result.probabilities)) {
-                throw new Error('Invalid response from server');
-            }
-            
-            // Handle analysis result
-            this.handleAnalysisResult(imgElement, result);
-            
-            return result;
-            
         } catch (error) {
-            console.error('Specific image analysis error:', error);
+            console.error('Image conversion error:', error);
             throw error;
+        }
+    }
+    
+    updateImageWithResult(imageUrl, result) {
+        const imgElement = document.querySelector(`img[src="${imageUrl}"]`);
+        if (imgElement) {
+            this.handleAnalysisResult(imgElement, result);
         }
     }
 }

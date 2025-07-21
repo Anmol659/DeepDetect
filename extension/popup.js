@@ -241,11 +241,8 @@ class DeepDetectPopup {
                 this.updateProgress(progress, `Analyzing image ${i + 1}/${images.length}...`);
                 
                 try {
-                    // Send message to content script to analyze specific image
-                    const analysisResult = await chrome.tabs.sendMessage(tab.id, {
-                        action: 'analyzeSpecificImage',
-                        imageData: img
-                    });
+                    // Analyze image directly through backend
+                    const analysisResult = await this.analyzeImageDirectly(img, tab.id);
                     
                     if (analysisResult?.success && analysisResult.result) {
                         analyzed++;
@@ -263,6 +260,15 @@ class DeepDetectPopup {
                         if (analysisResult.result.label !== 'real') {
                             suspicious++;
                         }
+                        
+                        // Update content script with result for visual overlay
+                        chrome.tabs.sendMessage(tab.id, {
+                            action: 'updateImageResult',
+                            imageUrl: img.src,
+                            result: analysisResult.result
+                        }).catch(() => {
+                            // Ignore if content script not available
+                        });
                     }
                 } catch (error) {
                     console.error(`Failed to analyze image ${i + 1}:`, error);
@@ -289,6 +295,94 @@ class DeepDetectPopup {
         }
     }
 
+    async analyzeImageDirectly(imageData, tabId) {
+        try {
+            console.log(`Analyzing image directly: ${imageData.src}`);
+            
+            // Convert image URL to blob
+            let blob;
+            
+            try {
+                // Try to fetch the image directly
+                const response = await fetch(imageData.src, {
+                    method: 'GET',
+                    mode: 'cors',
+                    credentials: 'omit',
+                    signal: AbortSignal.timeout(10000)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch image: ${response.status}`);
+                }
+                
+                blob = await response.blob();
+                
+                if (blob.size === 0) {
+                    throw new Error('Empty image file');
+                }
+                
+            } catch (fetchError) {
+                console.warn('Direct fetch failed, trying canvas conversion:', fetchError);
+                
+                // Fallback: Use content script to convert image
+                const canvasResult = await chrome.tabs.sendMessage(tabId, {
+                    action: 'convertImageToBlob',
+                    imageUrl: imageData.src
+                });
+                
+                if (!canvasResult?.success || !canvasResult.blob) {
+                    throw new Error('Failed to convert image to blob');
+                }
+                
+                // Convert base64 to blob
+                const base64Response = await fetch(canvasResult.blob);
+                blob = await base64Response.blob();
+            }
+            
+            // Validate blob
+            if (!blob || blob.size === 0) {
+                throw new Error('Invalid image blob');
+            }
+            
+            // Ensure proper MIME type
+            if (!blob.type.startsWith('image/')) {
+                blob = new Blob([blob], { type: 'image/jpeg' });
+            }
+            
+            console.log(`Sending to backend: ${blob.type}, size: ${blob.size}`);
+            
+            // Create form data
+            const formData = new FormData();
+            const filename = blob.type.includes('png') ? 'image.png' : 'image.jpg';
+            formData.append('file', blob, filename);
+            
+            // Send to backend
+            const response = await fetch(`${this.serverUrl}/analyze`, {
+                method: 'POST',
+                body: formData,
+                signal: AbortSignal.timeout(30000)
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Backend analysis failed: ${response.status} - ${errorText}`);
+            }
+            
+            const result = await response.json();
+            
+            if (!result || (!result.class_probs && !result.probabilities)) {
+                throw new Error('Invalid response from backend');
+            }
+            
+            console.log(`Analysis successful: ${result.label} (${result.confidence})`);
+            
+            return { success: true, result };
+            
+        } catch (error) {
+            console.error('Direct image analysis error:', error);
+            return { success: false, error: error.message };
+        }
+    }
 
     async handleFileSelect(event) {
         const file = event.target.files[0];
