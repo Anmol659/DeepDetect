@@ -130,7 +130,8 @@ class DeepDetectPopup {
         const progressSection = document.getElementById('scanProgress');
         
         scanBtn.disabled = true;
-        scanBtn.textContent = 'Scanning...';
+        const originalContent = scanBtn.innerHTML;
+        scanBtn.innerHTML = '<div class="spinner"></div> Scanning...';
         progressSection.style.display = 'block';
         this.updateProgress(0, 'Starting scan...');
         
@@ -138,20 +139,10 @@ class DeepDetectPopup {
             // Get current tab
             const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
             
-            // Check if content script is loaded
-            let contentScriptLoaded = false;
-            try {
-                const results = await chrome.scripting.executeScript({
-                    target: { tabId: tab.id },
-                    function: () => window.deepDetectLoaded || false
-                });
-                contentScriptLoaded = results[0]?.result || false;
-            } catch (error) {
-                console.log('Content script not loaded, injecting...');
-            }
+            this.updateProgress(10, 'Preparing page scan...');
             
-            // Inject content script if not loaded
-            if (!contentScriptLoaded) {
+            // Always inject content script to ensure it's loaded
+            try {
                 await chrome.scripting.executeScript({
                     target: { tabId: tab.id },
                     files: ['content.js']
@@ -163,107 +154,138 @@ class DeepDetectPopup {
                 });
                 
                 // Wait for content script to initialize
-                await new Promise(resolve => setTimeout(resolve, 1000));
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            } catch (injectionError) {
+                console.error('Failed to inject content script:', injectionError);
+                throw new Error('Failed to initialize page scanner');
             }
             
-            this.updateProgress(20, 'Finding images on page...');
+            this.updateProgress(30, 'Finding images on page...');
             
-            // Get images from content script
+            // Get images directly from page
             const imageResults = await chrome.scripting.executeScript({
                 target: { tabId: tab.id },
                 function: () => {
-                    if (window.deepDetectContent) {
-                        return Array.from(document.querySelectorAll('img'))
-                            .filter(img => {
-                                return img.naturalWidth > 50 && 
-                                       img.naturalHeight > 50 && 
-                                       img.src && 
-                                       !img.src.startsWith('data:') &&
-                                       !img.src.includes('icon') &&
-                                       !img.src.includes('logo') &&
-                                       img.complete;
-                            })
-                            .map(img => ({
-                                src: img.src,
-                                width: img.naturalWidth,
-                                height: img.naturalHeight,
-                                alt: img.alt || ''
-                            }));
+                    // Wait for page to be ready
+                    if (document.readyState !== 'complete') {
+                        return { error: 'Page not fully loaded' };
                     }
-                    return [];
+                    
+                    const images = Array.from(document.querySelectorAll('img'));
+                    console.log(`Found ${images.length} total img elements`);
+                    
+                    const validImages = images.filter(img => {
+                        // Check if image is loaded and has valid dimensions
+                        const isLoaded = img.complete && img.naturalWidth > 0 && img.naturalHeight > 0;
+                        const hasValidSize = img.naturalWidth >= 32 && img.naturalHeight >= 32;
+                        const hasValidSrc = img.src && img.src.trim() !== '' && !img.src.startsWith('data:');
+                        const isNotIcon = !img.src.toLowerCase().includes('icon') && 
+                                         !img.src.toLowerCase().includes('logo') &&
+                                         !img.src.toLowerCase().includes('favicon');
+                        
+                        console.log(`Image ${img.src}: loaded=${isLoaded}, size=${hasValidSize}, src=${hasValidSrc}, notIcon=${isNotIcon}`);
+                        
+                        return isLoaded && hasValidSize && hasValidSrc && isNotIcon;
+                    });
+                    
+                    console.log(`Filtered to ${validImages.length} valid images`);
+                    
+                    return {
+                        totalFound: images.length,
+                        validImages: validImages.map(img => ({
+                            src: img.src,
+                            width: img.naturalWidth,
+                            height: img.naturalHeight,
+                            alt: img.alt || '',
+                            className: img.className || '',
+                            id: img.id || ''
+                        }))
+                    };
                 }
             });
             
-            const images = imageResults[0]?.result || [];
+            const result = imageResults[0]?.result;
+            
+            if (result?.error) {
+                throw new Error(result.error);
+            }
+            
+            const images = result?.validImages || [];
+            const totalFound = result?.totalFound || 0;
+            
+            console.log(`Scan results: ${totalFound} total images, ${images.length} valid for analysis`);
             
             this.updateStats(images.length, 0, 0);
-            this.updateProgress(40, `Found ${images.length} images`);
+            this.updateProgress(50, `Found ${images.length} images (${totalFound} total)`);
             
             if (images.length === 0) {
-                this.showToast('warning', 'No Images Found', 'No images detected on this page');
+                this.showToast('warning', 'No Images Found', 
+                    totalFound > 0 ? 
+                    `Found ${totalFound} images but none are suitable for analysis (too small, icons, or data URLs)` :
+                    'No images detected on this page');
                 progressSection.style.display = 'none';
                 scanBtn.disabled = false;
-                scanBtn.textContent = 'Scan Page';
+                scanBtn.innerHTML = originalContent;
                 return;
             }
 
-            this.updateProgress(60, 'Starting analysis...');
+            this.updateProgress(70, 'Starting analysis...');
             
-            // Trigger scan in content script
-            const scanResponse = await chrome.tabs.sendMessage(tab.id, {
-                action: 'scanPage'
-            });
-            
-            if (!scanResponse?.success) {
-                throw new Error('Failed to start page scan');
-            }
-            
-            this.updateProgress(80, 'Processing results...');
-            
-            // Wait for scan to complete and get results
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            const resultsResponse = await chrome.tabs.sendMessage(tab.id, {
-                action: 'getPageImages'
-            });
-            
-            const analyzedImages = resultsResponse?.images || [];
-            let scanned = 0;
+            // Analyze images one by one with progress updates
+            let analyzed = 0;
             let suspicious = 0;
             
-            // Process results
-            analyzedImages.forEach((img, index) => {
-                if (img.result) {
-                    scanned++;
-                    this.scanResults.push({
-                        id: Date.now() + index,
-                        url: img.src,
-                        thumbnail: img.src,
-                        result: img.result,
-                        timestamp: new Date(),
-                        pageUrl: tab.url
+            for (let i = 0; i < images.length; i++) {
+                const img = images[i];
+                const progress = 70 + (i / images.length) * 25;
+                this.updateProgress(progress, `Analyzing image ${i + 1}/${images.length}...`);
+                
+                try {
+                    // Send message to content script to analyze specific image
+                    const analysisResult = await chrome.tabs.sendMessage(tab.id, {
+                        action: 'analyzeSpecificImage',
+                        imageData: img
                     });
                     
-                    if (img.result.label !== 'real') {
-                        suspicious++;
+                    if (analysisResult?.success && analysisResult.result) {
+                        analyzed++;
+                        
+                        // Add to results
+                        this.scanResults.push({
+                            id: Date.now() + i,
+                            url: img.src,
+                            thumbnail: img.src,
+                            result: analysisResult.result,
+                            timestamp: new Date(),
+                            pageUrl: tab.url
+                        });
+                        
+                        if (analysisResult.result.label !== 'real') {
+                            suspicious++;
+                        }
                     }
+                } catch (error) {
+                    console.error(`Failed to analyze image ${i + 1}:`, error);
                 }
-            });
+                
+                // Small delay between analyses
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
             
-            this.updateProgress(100, `Scan complete: ${scanned} analyzed`);
+            this.updateProgress(100, `Scan complete: ${analyzed} analyzed`);
             await this.saveScanResults();
             this.updateResultsList();
-            this.updateStats(images.length, scanned, suspicious);
+            this.updateStats(images.length, analyzed, suspicious);
             
-            this.showToast('success', 'Scan Complete', `Analyzed ${scanned} images, found ${suspicious} suspicious`);
+            this.showToast('success', 'Scan Complete', `Analyzed ${analyzed} images, found ${suspicious} suspicious`);
             
         } catch (error) {
             console.error('Scan error:', error);
-            this.showToast('error', 'Scan Failed', `Error: ${error.message}`);
+            this.showToast('error', 'Scan Failed', `Error: ${error.message || 'Unknown error occurred'}`);
         } finally {
             progressSection.style.display = 'none';
             scanBtn.disabled = false;
-            scanBtn.textContent = 'Scan Page';
+            scanBtn.innerHTML = originalContent;
         }
     }
 
