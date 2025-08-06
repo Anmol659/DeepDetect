@@ -71,17 +71,7 @@ DeepShield is a cutting-edge AI-powered system designed to detect manipulated me
 
 ##  Quick Start
 
-### **Option 1: Use Deployed Backend **
-```bash
-# 1. Clone repository
-git clone https://github.com/Anmol659/DeepDetect.git
-cd deepshield
-
-# 2. Load Chrome extension (see detailed guide below)
-# 3. Connect to deployed backend: https://your-app.onrender.com
-```
-
-### **Option 2: Local Development**
+### **Option 1: Local Development**
 ```bash
 # 1. Clone and setup backend
 git clone https://github.com/Anmol659/DeepDetect.git
@@ -130,17 +120,6 @@ cd deepshield
 
 ### **Step 3: Configure Backend Connection**
 
-#### **For Deployed Backend (Production)**
-1. **Click DeepShield extension icon** in toolbar
-2. **Go to Settings tab** (gear icon)
-3. **Update Backend URL:**
-   ```
-   https://deepdetect-api-nnp6.onrender.com
-   ```
-   Replace `your-app-name` with your actual Render app name
-4. **Save settings** (auto-saves when you click outside)
-5. **Verify connection** - status should show "Connected" with green dot
-
 #### **For Local Backend (Development)**
 1. **Start local server first:**
    ```bash
@@ -153,14 +132,6 @@ cd deepshield
 3. **Verify connection** shows "Connected"
 
 ### **Step 4: Test Extension Functionality**
-
-#### **Test Manual Scanning**
-1. **Visit a webpage with images** (news sites work well)
-   - CNN.com, BBC.com, Reddit.com, etc.
-2. **Click DeepShield extension icon**
-3. **Click "Scan Page" button**
-4. **Watch progress bar** and see results populate
-5. **Check Results tab** for detailed analysis
 
 #### **Test Auto-Scanning**
 1. **Enable auto-scan in Settings:**
