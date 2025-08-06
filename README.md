@@ -71,10 +71,10 @@ DeepShield is a cutting-edge AI-powered system designed to detect manipulated me
 
 ##  Quick Start
 
-### **Option 1: Use Deployed Backend (Recommended)**
+### **Option 1: Use Deployed Backend **
 ```bash
 # 1. Clone repository
-git clone https://github.com/yourusername/deepshield.git
+git clone https://github.com/Anmol659/DeepDetect.git
 cd deepshield
 
 # 2. Load Chrome extension (see detailed guide below)
@@ -84,13 +84,9 @@ cd deepshield
 ### **Option 2: Local Development**
 ```bash
 # 1. Clone and setup backend
-git clone https://github.com/yourusername/deepshield.git
+git clone https://github.com/Anmol659/DeepDetect.git
 cd deepshield
 pip install -r requirements.txt
-
-# 2. Train model (optional)
-cd backend/Model_A
-python MDA_2.py
 
 # 3. Start server
 python run_extension.py
