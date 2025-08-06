@@ -69,7 +69,7 @@ DeepShield is a cutting-edge AI-powered system designed to detect manipulated me
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-## 🚀 Quick Start
+##  Quick Start
 
 ### **Option 1: Use Deployed Backend (Recommended)**
 ```bash
@@ -98,12 +98,12 @@ python run_extension.py
 # 4. Load Chrome extension
 ```
 
-## 📱 Extension Setup Guide
+##  Extension Setup Guide
 
 ### **Step 1: Download Extension Files**
 ```bash
-git clone https://github.com/yourusername/deepshield.git
-cd deepshield/extension
+git clone https://github.com/Anmol659/DeepDetect.git
+cd deepshield
 ```
 
 ### **Step 2: Load Extension in Chrome**
@@ -139,7 +139,7 @@ cd deepshield/extension
 2. **Go to Settings tab** (gear icon)
 3. **Update Backend URL:**
    ```
-   https://your-app-name.onrender.com
+   https://deepdetect-api-nnp6.onrender.com
    ```
    Replace `your-app-name` with your actual Render app name
 4. **Save settings** (auto-saves when you click outside)
@@ -194,7 +194,7 @@ cd deepshield/extension
 - **Backend URL**: Your server endpoint
 - **Timeout settings**: Request timeout duration
 
-## 🖥️ Backend Setup
+## 🖥 Backend Setup
 
 ### Prerequisites
 - Python 3.8+
