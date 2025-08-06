@@ -2,7 +2,7 @@
 
 ![DeepDetect Banner](https://via.placeholder.com/800x200/2563eb/ffffff?text=DeepDetect+-+AI+Media+Authentication)
 
-## 📋 Table of Contents
+##  Table of Contents
 - [Overview](#overview)
 - [Features](#features)
 - [Architecture](#architecture)
@@ -15,40 +15,40 @@
 - [Contributing](#contributing)
 - [License](#license)
 
-## 🎯 Overview
+##  Overview
 
 DeepDetect is a cutting-edge AI-powered system designed to detect manipulated media content including deepfakes, AI-generated images, and other forms of synthetic media. The system combines a powerful Flask backend with an intuitive Chrome extension for real-time web content analysis.
 
-### 🎪 Key Capabilities
+###  Key Capabilities
 - **AI-Generated Image Detection**: Identify images created by tools like DALL-E, Midjourney, Stable Diffusion
 - **Deepfake Detection**: Detect face-swapped videos and manipulated facial expressions
 - **Real-time Web Scanning**: Automatically scan web pages for suspicious content
 - **Batch Processing**: Analyze multiple files simultaneously
 - **Confidence Scoring**: Detailed confidence levels for each prediction
 
-## ✨ Features
+##  Features
 
-### 🖥️ Web Application
+###  Web Application
 - **Modern UI**: Glassmorphism design with smooth animations
 - **Drag & Drop Upload**: Easy file upload with progress tracking
 - **Real-time Analysis**: Instant results with detailed breakdowns
 - **Responsive Design**: Works on desktop, tablet, and mobile
 
-### 🔌 Chrome Extension
+###  Chrome Extension
 - **Auto-scan Mode**: Automatically analyze images on page load
 - **Manual Scanning**: On-demand page scanning
 - **Visual Indicators**: Highlight suspicious content with overlays
 - **Settings Panel**: Customizable detection thresholds and preferences
 - **Results Dashboard**: Track and review scan history
 
-### 🧠 AI Backend
+###  AI Backend
 - **EfficientNet-B4 Architecture**: State-of-the-art deep learning model
 - **3-Class Classification**: AI-generated, Deepfake, Real
 - **High Accuracy**: 95%+ accuracy on test datasets
 - **Fast Processing**: Sub-second analysis times
 - **Video Support**: Frame-by-frame video analysis
 
-## 🏗️ Architecture
+##  Architecture
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
@@ -61,7 +61,7 @@ DeepDetect is a cutting-edge AI-powered system designed to detect manipulated me
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-## 🚀 Installation
+##  Installation
 
 ### Prerequisites
 - Python 3.8+
@@ -121,7 +121,7 @@ with open('image.jpg', 'rb') as f:
     print(f"Confidence: {result['confidence']:.2%}")
 ```
 
-## 🔌 API Documentation
+##  API Documentation
 
 ### Health Check
 ```http
@@ -159,7 +159,7 @@ GET /model_info
 ```
 Returns detailed model architecture and capabilities.
 
-## 🎨 Chrome Extension
+##  Chrome Extension
 
 ### Features
 - **Real-time Scanning**: Analyze images as you browse
@@ -222,7 +222,7 @@ weight_decay = 1e-5
 label_smoothing = 0.1
 ```
 
-## 🌐 Deployment
+##  Deployment
 
 ### Production Deployment Options
 
@@ -325,7 +325,7 @@ DATABASE_URL=postgresql://user:pass@localhost/deepdetect
 }
 ```
 
-## 🧪 Testing
+##  Testing
 
 ### Backend Tests
 ```bash
@@ -348,7 +348,7 @@ npm test
 python tests/test_extension.py
 ```
 
-## 📊 Performance Metrics
+##  Performance Metrics
 
 ### Model Performance
 - **Accuracy**: 95.2% on test dataset
@@ -362,7 +362,7 @@ python tests/test_extension.py
 - **Memory Usage**: <2GB RAM
 - **CPU Usage**: <50% on modern hardware
 
-## 🤝 Contributing
+##  Contributing
 
 ### Development Setup
 ```bash
@@ -393,18 +393,18 @@ pip install -r requirements-dev.txt
 4. Push to branch (`git push origin feature/amazing-feature`)
 5. Open Pull Request
 
-## 📄 License
+##  License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 🙏 Acknowledgments
+##  Acknowledgments
 
 - **EfficientNet**: Google Research for the base architecture
 - **PyTorch**: Facebook AI Research for the deep learning framework
 - **Flask**: Pallets Projects for the web framework
 - **Chrome Extensions**: Google for the extension platform
 
-## 📞 Support
+##  Support
 
 ### Getting Help
 - **Documentation**: Check this README first
@@ -418,7 +418,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 3. **Analysis errors**: Verify image format and size
 4. **Performance issues**: Consider GPU acceleration
 
-## 🔮 Roadmap
+##  Roadmap
 
 ### Version 2.1 (Next Release)
 - [ ] Real-time video stream analysis
