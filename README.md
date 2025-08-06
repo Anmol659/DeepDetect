@@ -95,7 +95,7 @@ python run_extension.py
 ## 📖 Usage
 
 ### Web Application
-1. Navigate to `http://localhost:5000`
+1. Navigate to `(https://deepdetect-api-nnp6.onrender.com)`
 2. Upload an image or video file
 3. View detailed analysis results
 4. Check confidence scores and classifications
