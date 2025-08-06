@@ -1,23 +1,31 @@
 # 🛡️ DeepDetect - AI Media Authentication System
 
+> **Advanced AI-powered deepfake and synthetic media detection system with Chrome extension for real-time web content analysis.**
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
+[![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-green.svg)](https://chrome.google.com/webstore)
+[![Deploy Status](https://img.shields.io/badge/Deploy-Ready-brightgreen.svg)](https://render.com)
 
 ##  Table of Contents
 - [Overview](#overview)
 - [Features](#features)
 - [Architecture](#architecture)
-- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Extension Setup Guide](#extension-setup-guide)
+- [Backend Setup](#backend-setup)
 - [Usage](#usage)
 - [API Documentation](#api-documentation)
-- [Chrome Extension](#chrome-extension)
+- [Chrome Extension Details](#chrome-extension-details)
 - [Model Training](#model-training)
 - [Deployment](#deployment)
+- [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
 - [License](#license)
 
 ##  Overview
 
-DeepDetect is a cutting-edge AI-powered system designed to detect manipulated media content including deepfakes, AI-generated images, and other forms of synthetic media. The system combines a powerful Flask backend with an intuitive Chrome extension for real-time web content analysis.
+DeepShield is a cutting-edge AI-powered system designed to detect manipulated media content including deepfakes, AI-generated images, and other forms of synthetic media. The system combines a powerful Flask backend with an intuitive Chrome extension for real-time web content analysis.
 
 ###  Key Capabilities
 - **AI-Generated Image Detection**: Identify images created by tools like DALL-E, Midjourney, Stable Diffusion
@@ -61,50 +69,227 @@ DeepDetect is a cutting-edge AI-powered system designed to detect manipulated me
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-##  Installation
+## 🚀 Quick Start
+
+### **Option 1: Use Deployed Backend (Recommended)**
+```bash
+# 1. Clone repository
+git clone https://github.com/yourusername/deepshield.git
+cd deepshield
+
+# 2. Load Chrome extension (see detailed guide below)
+# 3. Connect to deployed backend: https://your-app.onrender.com
+```
+
+### **Option 2: Local Development**
+```bash
+# 1. Clone and setup backend
+git clone https://github.com/yourusername/deepshield.git
+cd deepshield
+pip install -r requirements.txt
+
+# 2. Train model (optional)
+cd backend/Model_A
+python MDA_2.py
+
+# 3. Start server
+python run_extension.py
+
+# 4. Load Chrome extension
+```
+
+## 📱 Extension Setup Guide
+
+### **Step 1: Download Extension Files**
+```bash
+git clone https://github.com/yourusername/deepshield.git
+cd deepshield/extension
+```
+
+### **Step 2: Load Extension in Chrome**
+
+#### **Method A: Developer Mode (Recommended)**
+1. **Open Chrome Extensions Page**
+   - Type `chrome://extensions/` in address bar
+   - Or go to Menu → More Tools → Extensions
+
+2. **Enable Developer Mode**
+   - Toggle "Developer mode" switch in top-right corner
+   - You should see new buttons appear
+
+3. **Load Unpacked Extension**
+   - Click "Load unpacked" button
+   - Navigate to your `deepshield/extension` folder
+   - Select the folder and click "Select Folder"
+
+4. **Verify Installation**
+   - DeepShield extension should appear in your extensions list
+   - You should see the DeepShield icon in your Chrome toolbar
+   - If not visible, click the puzzle piece icon and pin DeepShield
+
+#### **Method B: Drag and Drop**
+1. Open `chrome://extensions/` with Developer mode enabled
+2. Drag the entire `extension` folder onto the extensions page
+3. Chrome will automatically load the extension
+
+### **Step 3: Configure Backend Connection**
+
+#### **For Deployed Backend (Production)**
+1. **Click DeepShield extension icon** in toolbar
+2. **Go to Settings tab** (gear icon)
+3. **Update Backend URL:**
+   ```
+   https://your-app-name.onrender.com
+   ```
+   Replace `your-app-name` with your actual Render app name
+4. **Save settings** (auto-saves when you click outside)
+5. **Verify connection** - status should show "Connected" with green dot
+
+#### **For Local Backend (Development)**
+1. **Start local server first:**
+   ```bash
+   python run_extension.py
+   ```
+2. **In extension settings, use:**
+   ```
+   http://localhost:5000
+   ```
+3. **Verify connection** shows "Connected"
+
+### **Step 4: Test Extension Functionality**
+
+#### **Test Manual Scanning**
+1. **Visit a webpage with images** (news sites work well)
+   - CNN.com, BBC.com, Reddit.com, etc.
+2. **Click DeepShield extension icon**
+3. **Click "Scan Page" button**
+4. **Watch progress bar** and see results populate
+5. **Check Results tab** for detailed analysis
+
+#### **Test Auto-Scanning**
+1. **Enable auto-scan in Settings:**
+   - Toggle "Auto-scan on page load" to ON
+2. **Navigate to new pages with images**
+3. **Images should automatically get analyzed**
+4. **Look for colored overlays on images:**
+   - 🟢 Green = Authentic/Real
+   - 🔴 Red = Suspicious/AI-generated
+   - 🟡 Yellow = Analyzing
+
+#### **Test File Upload**
+1. **Click extension icon**
+2. **Drag an image file** to the upload area
+3. **Or click to browse** and select file
+4. **View analysis results**
+
+### **Step 5: Customize Settings**
+
+#### **Detection Settings**
+- **Auto-scan on page load**: Automatically analyze images when visiting pages
+- **Show confidence scores**: Display percentage confidence on image overlays
+- **Highlight suspicious images**: Add red borders to detected fake content
+- **Confidence threshold**: Adjust sensitivity (50-100%)
+
+#### **Server Configuration**
+- **Backend URL**: Your server endpoint
+- **Timeout settings**: Request timeout duration
+
+## 🖥️ Backend Setup
 
 ### Prerequisites
 - Python 3.8+
-- Node.js 14+ (for development)
 - Chrome Browser
 - CUDA-compatible GPU (recommended)
 
-### 1. Clone Repository
+### Local Development Setup
 ```bash
-git clone https://github.com/yourusername/deepdetect.git
-cd deepdetect
-```
+# 1. Clone repository
+git clone https://github.com/yourusername/deepshield.git
+cd deepshield
 
-### 2. Install Python Dependencies
-```bash
+# 2. Create virtual environment (recommended)
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# or
+venv\Scripts\activate  # Windows
+
+# 3. Install dependencies
 pip install -r requirements.txt
+
+# 4. Create checkpoints directory
+mkdir -p checkpoints
 ```
 
-### 3. Start Backend Server
+### Model Setup
+
+#### **Option A: Use Existing Model**
+If you have a trained model:
 ```bash
-python run_extension.py
+# Place your model file in checkpoints/
+cp your_model.pth checkpoints/best_model_3way.pth
 ```
 
-### 4. Load Chrome Extension
-1. Open Chrome and navigate to `chrome://extensions/`
-2. Enable "Developer mode" (toggle in top right)
-3. Click "Load unpacked"
-4. Select the `extension` folder from this project
-5. Pin the DeepDetect extension to your toolbar
+#### **Option B: Train New Model**
+```bash
+# Prepare your dataset in this structure:
+# datasets/
+# ├── train/
+# │   ├── ai_generated/
+# │   ├── deepfake/
+# │   └── real/
+# ├── val/
+# │   ├── ai_generated/
+# │   ├── deepfake/
+# │   └── real/
+
+# Train the model
+cd backend/Model_A
+python MDA_2.py
+```
+
+### Start Development Server
+```bash
+# From project root
+python run_extension.py
+
+# Server will start on http://localhost:5000
+# Web interface available at http://localhost:5000
+```
 
 ## 📖 Usage
 
 ### Web Application
-1. Navigate to `(https://deepdetect-api-nnp6.onrender.com)`
+1. Navigate to your deployed URL or `http://localhost:5000`
 2. Upload an image or video file
 3. View detailed analysis results
 4. Check confidence scores and classifications
 
 ### Chrome Extension
-1. **Auto-scan**: Enable in settings to automatically scan pages
-2. **Manual scan**: Click extension icon → "Scan Page"
-3. **File upload**: Drag files to extension popup
-4. **View results**: Check Results tab for scan history
+
+#### **Manual Scanning**
+1. **Visit any webpage** with images
+2. **Click DeepShield icon** in Chrome toolbar
+3. **Click "Scan Page"** button
+4. **Watch progress** as images are analyzed
+5. **View results** in Results tab
+
+#### **Auto-Scanning**
+1. **Enable in Settings**: Toggle "Auto-scan on page load"
+2. **Browse normally** - images analyzed automatically
+3. **Look for overlays** on images indicating results
+
+#### **File Upload Analysis**
+1. **Click extension icon**
+2. **Drag & drop** image files to upload area
+3. **Or click to browse** and select files
+4. **View instant results** with confidence scores
+
+#### **Understanding Results**
+- **🟢 Green overlay**: Authentic/Real content (95%+ confidence)
+- **🔴 Red border + pulse**: Suspicious/AI-generated content
+- **🟡 Yellow overlay**: Currently analyzing
+- **⚠️ Warning icon**: Click for detailed breakdown
+- **Badge number**: Shows count of suspicious images found
 
 ### API Usage
 ```python
@@ -113,7 +298,7 @@ import requests
 # Analyze image
 with open('image.jpg', 'rb') as f:
     response = requests.post(
-        'http://localhost:5000/analyze',
+        'https://your-app.onrender.com/analyze',
         files={'file': f}
     )
     result = response.json()
@@ -159,26 +344,43 @@ GET /model_info
 ```
 Returns detailed model architecture and capabilities.
 
-##  Chrome Extension
+## 🔧 Chrome Extension Details
 
-### Features
+### Core Features
 - **Real-time Scanning**: Analyze images as you browse
 - **Visual Feedback**: Color-coded overlays on images
 - **Confidence Scores**: Percentage confidence for each prediction
 - **Settings Panel**: Customize behavior and thresholds
 - **Results History**: Track and review past scans
+- **Batch Analysis**: Process multiple images simultaneously
+- **Error Recovery**: Graceful handling of network issues
 
-### Settings
+### Advanced Settings
 - **Auto-scan**: Enable/disable automatic page scanning
 - **Confidence Threshold**: Adjust sensitivity (50-100%)
 - **Visual Indicators**: Show/hide image overlays
 - **Server URL**: Configure backend endpoint
+- **Timeout Settings**: Adjust request timeout duration
+- **Debug Mode**: Enable detailed logging for troubleshooting
 
 ### Visual Indicators
 - 🟢 **Green**: Authentic/Real content
 - 🔴 **Red**: Suspicious/AI-generated content
 - 🟡 **Yellow**: Uncertain/Low confidence
 - ⚪ **Gray**: Analysis in progress
+
+### Extension Permissions
+The extension requires these permissions:
+- **activeTab**: Access current tab for image scanning
+- **storage**: Save settings and scan results
+- **scripting**: Inject content scripts for analysis
+- **host_permissions**: Connect to backend servers
+
+### Privacy & Security
+- **No data collection**: Images analyzed locally or on your server
+- **Secure transmission**: HTTPS encryption for API calls
+- **Local storage**: Settings stored locally in Chrome
+- **No tracking**: No analytics or user tracking
 
 ## 🧠 Model Training
 
@@ -224,106 +426,137 @@ label_smoothing = 0.1
 
 ##  Deployment
 
-### Production Deployment Options
+### Quick Deployment to Render.com
+
+1. **Prepare Repository**
+   ```bash
+   # Ensure model is in checkpoints/
+   cp your_model.pth checkpoints/best_model_3way.pth
+   
+   # Commit to Git
+   git add .
+   git commit -m "Deploy to production"
+   git push origin main
+   ```
+
+2. **Deploy to Render**
+   - Go to [render.com](https://render.com) and sign up
+   - Connect your GitHub repository
+   - Create new **Web Service**
+   - Use provided `render.yaml` configuration
+   - Deploy automatically
+
+3. **Update Extension**
+   ```bash
+   # Your app will be available at:
+   https://your-app-name.onrender.com
+   
+   # Update extension settings with this URL
+   ```
+
+### Alternative Deployment Options
 
 #### 1. **Cloud Deployment (Recommended)**
 ```bash
 # Docker deployment
-docker build -t deepdetect .
-docker run -p 5000:5000 deepdetect
+docker build -t deepshield .
+docker run -p 5000:5000 deepshield
 ```
 
 #### 2. **Heroku Deployment**
 ```bash
 # Install Heroku CLI
-heroku create deepdetect-app
+heroku create deepshield-app
 git push heroku main
 ```
 
-#### 3. **AWS/GCP Deployment**
-- Use EC2/Compute Engine instances
-- Configure load balancing for high traffic
-- Set up auto-scaling groups
-
-### Making the Model Production-Ready
-
-#### 1. **Model Optimization**
-```python
-# Model quantization for faster inference
-import torch.quantization as quantization
-model_quantized = quantization.quantize_dynamic(
-    model, {torch.nn.Linear}, dtype=torch.qint8
-)
-```
-
-#### 2. **Caching Strategy**
-```python
-# Redis caching for repeated requests
-import redis
-cache = redis.Redis(host='localhost', port=6379, db=0)
-```
-
-#### 3. **API Rate Limiting**
-```python
-from flask_limiter import Limiter
-limiter = Limiter(
-    app,
-    key_func=lambda: request.remote_addr,
-    default_limits=["100 per hour"]
-)
-```
-
-#### 4. **Monitoring & Logging**
-```python
-# Structured logging
-import structlog
-logger = structlog.get_logger()
-```
-
-### Security Considerations
-- **Input Validation**: Strict file type and size limits
-- **Rate Limiting**: Prevent API abuse
-- **HTTPS**: SSL/TLS encryption for production
-- **Authentication**: API keys for enterprise use
-- **Content Filtering**: Block malicious uploads
-
-### Performance Optimization
-- **GPU Acceleration**: CUDA support for faster inference
-- **Model Caching**: Keep model in memory
-- **Batch Processing**: Process multiple images together
-- **CDN Integration**: Cache static assets
-- **Database Optimization**: Index frequently queried fields
-
-### Scalability Recommendations
-1. **Horizontal Scaling**: Multiple server instances
-2. **Load Balancing**: Distribute requests across servers
-3. **Database Clustering**: Separate read/write operations
-4. **Microservices**: Split into smaller, focused services
-5. **Container Orchestration**: Kubernetes for large deployments
-
-## 🔧 Configuration
-
-### Environment Variables
+#### 3. **Railway Deployment**
 ```bash
-# .env file
-FLASK_ENV=production
-MODEL_PATH=checkpoints/best_model_3way.pth
-UPLOAD_FOLDER=uploads
-MAX_FILE_SIZE=50MB
-REDIS_URL=redis://localhost:6379
-DATABASE_URL=postgresql://user:pass@localhost/deepdetect
+npm install -g @railway/cli
+railway login
+railway init
+railway up
 ```
 
-### Extension Configuration
-```json
-{
-  "serverUrl": "https://your-api-domain.com",
-  "autoScan": true,
-  "confidenceThreshold": 0.7,
-  "maxFileSize": 52428800,
-  "supportedFormats": ["jpg", "jpeg", "png", "webp", "mp4", "avi"]
-}
+### Environment Variables for Production
+```bash
+# Required environment variables
+FLASK_ENV=production
+PORT=5000
+MODEL_PATH=checkpoints/best_model_3way.pth
+
+# Optional
+MAX_FILE_SIZE=50MB
+UPLOAD_FOLDER=uploads
 ```
+
+## 🔍 Troubleshooting
+
+### Common Extension Issues
+
+#### **Extension Not Loading**
+- ✅ Check Developer mode is enabled
+- ✅ Reload extension: `chrome://extensions/` → Refresh button
+- ✅ Check for JavaScript errors in Console (F12)
+- ✅ Verify all files are in extension folder
+
+#### **"No Images Found" Error**
+- ✅ Try different websites with more images
+- ✅ Check if images are fully loaded (wait a few seconds)
+- ✅ Reload page and try again
+- ✅ Check browser console for errors
+
+#### **Connection Issues**
+- ✅ Verify backend URL in Settings
+- ✅ Check if backend server is running
+- ✅ Test backend health: `https://your-app.onrender.com/health`
+- ✅ Check CORS settings if using custom domain
+
+#### **Analysis Failures**
+- ✅ Check image format (JPG, PNG, WebP supported)
+- ✅ Verify image size (minimum 32x32 pixels)
+- ✅ Check network connection
+- ✅ Try with different images
+
+### Backend Issues
+
+#### **Model Not Loading**
+```bash
+# Check if model file exists
+ls -la checkpoints/best_model_3way.pth
+
+# If missing, train model:
+cd backend/Model_A
+python MDA_2.py
+```
+
+#### **Server Won't Start**
+```bash
+# Check Python version
+python --version  # Should be 3.8+
+
+# Install dependencies
+pip install -r requirements.txt
+
+# Check for port conflicts
+lsof -i :5000  # Linux/Mac
+netstat -ano | findstr :5000  # Windows
+```
+
+#### **Deployment Issues**
+```bash
+# Check deployment logs
+# For Render: Check logs in dashboard
+# For Heroku: heroku logs --tail
+# For Railway: railway logs
+```
+
+### Getting Help
+1. **Check browser console** (F12) for JavaScript errors
+2. **Test backend directly** by visiting `/health` endpoint
+3. **Try different images/websites** to isolate issues
+4. **Check network tab** in DevTools for failed requests
+5. **Reload extension** after making changes
 
 ##  Testing
 
@@ -341,11 +574,16 @@ python tests/test_performance.py
 
 ### Extension Tests
 ```bash
-# Load test extension
-npm test
-
 # E2E testing with Selenium
 python tests/test_extension.py
+
+# Manual testing checklist:
+# ✅ Extension loads without errors
+# ✅ Settings save and persist
+# ✅ Manual scan finds images
+# ✅ Auto-scan works on page load
+# ✅ File upload analysis works
+# ✅ Results display correctly
 ```
 
 ##  Performance Metrics
@@ -367,8 +605,8 @@ python tests/test_extension.py
 ### Development Setup
 ```bash
 # Fork the repository
-git clone https://github.com/yourusername/deepdetect.git
-cd deepdetect
+git clone https://github.com/yourusername/deepshield.git
+cd deepshield
 
 # Create virtual environment
 python -m venv venv
@@ -410,13 +648,24 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - **Documentation**: Check this README first
 - **Issues**: Open GitHub issues for bugs
 - **Discussions**: Use GitHub Discussions for questions
-- **Email**: contact@deepdetect.ai (if available)
+- **Email**: contact@deepshield.ai (if available)
 
-### Common Issues
-1. **Model not loading**: Ensure checkpoint file exists
-2. **Extension not connecting**: Check server URL in settings
-3. **Analysis errors**: Verify image format and size
-4. **Performance issues**: Consider GPU acceleration
+### FAQ
+
+**Q: Why is the extension not finding images?**
+A: Make sure images are fully loaded and meet minimum size requirements (32x32px). Try refreshing the page.
+
+**Q: Can I use this offline?**
+A: The extension requires a backend server. You can run the server locally for offline use.
+
+**Q: What image formats are supported?**
+A: JPG, JPEG, PNG, WebP, and GIF formats are supported.
+
+**Q: How accurate is the detection?**
+A: The model achieves 95%+ accuracy on test datasets, but results may vary with different types of content.
+
+**Q: Is my data private?**
+A: Images are only sent to your configured backend server. No data is collected or stored by the extension.
 
 ##  Roadmap
 
@@ -436,4 +685,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Made with ❤️ for digital media authenticity**
 
-For more information, visit our [website](https://deepdetect.ai) or follow us on [Twitter](https://twitter.com/deepdetect).
+For more information, visit our [website](https://deepshield.ai) or follow us on [Twitter](https://twitter.com/deepshield).
