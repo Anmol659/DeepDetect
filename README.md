@@ -1,6 +1,6 @@
 # 🛡️ DeepDetect - AI Media Authentication System
 
-![DeepDetect Banner](https://via.placeholder.com/800x200/2563eb/ffffff?text=DeepDetect+-+AI+Media+Authentication)
+![DeepDetect Banner]
 
 ##  Table of Contents
 - [Overview](#overview)
