@@ -1,0 +1,28 @@
+### Prerequisites
+- Python 3.8+
+- Node.js 14+ (for development)
+- Chrome Browser
+- CUDA-compatible GPU (recommended)
+
+### 1. Clone Repository
+```bash
+git clone https://github.com/yourusername/deepdetect.git
+cd deepdetect
+```
+
+### 2. Install Python Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### 3. Start Backend Server
+```bash
+python run_extension.py
+```
+
+### 4. Load Chrome Extension
+1. Open Chrome and navigate to `chrome://extensions/`
+2. Enable "Developer mode" (toggle in top right)
+3. Click "Load unpacked"
+4. Select the `extension` folder from this project
+5. Pin the DeepDetect extension to your toolbar
