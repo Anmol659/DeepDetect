@@ -54,7 +54,7 @@ DeepShield is a cutting-edge AI-powered system designed to detect manipulated me
 - **3-Class Classification**: AI-generated, Deepfake, Real
 - **High Accuracy**: 95%+ accuracy on test datasets
 - **Fast Processing**: Sub-second analysis times
-- **Video Support**: Frame-by-frame video analysis
+- **Video Support**: Frame-by-frame video analysis (upto 5 seconds)
 
 ##  Architecture
 
