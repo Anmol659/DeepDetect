@@ -15,4 +15,3 @@ services:
     disk:
       name: deepdetect-disk
       mountPath: /app/checkpoints
-      sizeGB: 1
